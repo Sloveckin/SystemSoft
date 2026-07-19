@@ -1,0 +1,90 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-fPIC",
+      "-g",
+      "-fsanitize=leak",
+      "-fsanitize=address",
+      "-fsanitize=pointer-compare",
+      "-fsanitize=pointer-subtract",
+      "-fsanitize=undefined",
+      "-fsanitize-address-use-after-scope",
+      "-Wextra",
+      "-Wall",
+      "-Igenerated",
+      "-Iinclude",
+      "-I../colc/include",
+      "-c",
+      "generated/parser.tab.c"
+    ],
+    "directory": "/home/slava/itmo/SystemSoft/front-end",
+    "file": "/home/slava/itmo/SystemSoft/front-end/generated/parser.tab.c"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-fPIC",
+      "-g",
+      "-fsanitize=leak",
+      "-fsanitize=address",
+      "-fsanitize=pointer-compare",
+      "-fsanitize=pointer-subtract",
+      "-fsanitize=undefined",
+      "-fsanitize-address-use-after-scope",
+      "-Wextra",
+      "-Wall",
+      "-Igenerated",
+      "-Iinclude",
+      "-I../colc/include",
+      "-c",
+      "generated/lexer.yy.c"
+    ],
+    "directory": "/home/slava/itmo/SystemSoft/front-end",
+    "file": "/home/slava/itmo/SystemSoft/front-end/generated/lexer.yy.c"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-fPIC",
+      "-g",
+      "-fsanitize=leak",
+      "-fsanitize=address",
+      "-fsanitize=pointer-compare",
+      "-fsanitize=pointer-subtract",
+      "-fsanitize=undefined",
+      "-fsanitize-address-use-after-scope",
+      "-Wextra",
+      "-Wall",
+      "-Igenerated",
+      "-Iinclude",
+      "-I../colc/include",
+      "-c",
+      "src/ast/ast_node.c"
+    ],
+    "directory": "/home/slava/itmo/SystemSoft/front-end",
+    "file": "/home/slava/itmo/SystemSoft/front-end/src/ast/ast_node.c"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-fPIC",
+      "-g",
+      "-fsanitize=leak",
+      "-fsanitize=address",
+      "-fsanitize=pointer-compare",
+      "-fsanitize=pointer-subtract",
+      "-fsanitize=undefined",
+      "-fsanitize-address-use-after-scope",
+      "-Wextra",
+      "-Wall",
+      "-Igenerated",
+      "-Iinclude",
+      "-I../colc/include",
+      "-c",
+      "src/parser/parser.c"
+    ],
+    "directory": "/home/slava/itmo/SystemSoft/front-end",
+    "file": "/home/slava/itmo/SystemSoft/front-end/src/parser/parser.c"
+  }
+]

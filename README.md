@@ -3,5 +3,5 @@
 ## Installation dependencies
 
 ```bash
-sudo apt install gcc flex yacc
+sudo apt install gcc flex bison
 ```

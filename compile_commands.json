@@ -1,0 +1,26 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-g",
+      "-fsanitize=leak",
+      "-fsanitize=address",
+      "-fsanitize=pointer-compare",
+      "-fsanitize=pointer-subtract",
+      "-fsanitize=undefined",
+      "-fsanitize-address-use-after-scope",
+      "-Wextra",
+      "-Wall",
+      "-Werror",
+      "-Ifront-end/include",
+      "-Icolc/include",
+      "-o",
+      "main",
+      "main.c"
+    ],
+    "directory": "/home/slava/itmo/SystemSoft",
+    "file": "/home/slava/itmo/SystemSoft/main.c",
+    "output": "/home/slava/itmo/SystemSoft/main"
+  }
+]
