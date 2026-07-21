@@ -142,7 +142,7 @@ statement_list:
 source_item: func_def { $$ = $1; }
 ;
 
-source_item_list: { /* Empty list */ }
+source_item_list: 
             |    source_item    {
                                     struct AstNode* node = malloc(sizeof(struct AstNode));
                                     ast_node_init(node, AST_TYPE_SOURCE_ITEM_LIST);
@@ -156,7 +156,7 @@ source_item_list: { /* Empty list */ }
 ;
 
 return_type_opt:
-            | { /* Return type is void */ }
+            | 
             | AS type_ref { $$ = $2; }
 ;
 
@@ -180,7 +180,7 @@ func_def: FUNCTION func_signature statement_list END FUNCTION   {
 ;
 
 arg_def_list:
-            | { /* No arguments */}
+            | 
             | arg_def   {
                             struct AstNode* node = malloc(sizeof(struct AstNode));
                             ast_node_init(node, AST_TYPE_ARG_DEF_LIST);
@@ -392,7 +392,7 @@ braces: BR_OPEN expr BR_CLOSE { $$ = $2; }
 ;
 
 expr_list:
-        | { /* Empty expression list */ }
+        |
         | expr  {
                     struct AstNode* node = malloc(sizeof(struct AstNode));
                     ast_node_init(node, AST_TYPE_EXPR_LIST);

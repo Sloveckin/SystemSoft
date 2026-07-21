@@ -3,6 +3,8 @@
 
 #include "../ast/ast_node.h"
 
-struct AstNode* parse();
+#include <stdio.h>
+
+struct AstNode* parse(FILE* file);
 
 #endif
