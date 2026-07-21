@@ -15,6 +15,8 @@
       "-Werror",
       "-Ifront-end/include",
       "-Icolc/include",
+      "-Iuser-input/include",
+      "-Idgml/include",
       "-o",
       "main",
       "main.c"

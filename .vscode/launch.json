@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/main",
-            "args": ["LD_LIBRARY_PATH=./front-end"],
+            "args": ["./files/input.txt", "--not_exist_flag"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [
