@@ -60,6 +60,28 @@
       "-Iinclude",
       "-I../colc/include",
       "-c",
+      "src/ast/ast_node_type.c"
+    ],
+    "directory": "/home/slava/itmo/SystemSoft/front-end",
+    "file": "/home/slava/itmo/SystemSoft/front-end/src/ast/ast_node_type.c"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-fPIC",
+      "-g",
+      "-fsanitize=leak",
+      "-fsanitize=address",
+      "-fsanitize=pointer-compare",
+      "-fsanitize=pointer-subtract",
+      "-fsanitize=undefined",
+      "-fsanitize-address-use-after-scope",
+      "-Wextra",
+      "-Wall",
+      "-Igenerated",
+      "-Iinclude",
+      "-I../colc/include",
+      "-c",
       "src/ast/ast_node.c"
     ],
     "directory": "/home/slava/itmo/SystemSoft/front-end",

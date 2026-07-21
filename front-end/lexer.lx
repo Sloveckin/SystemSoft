@@ -1,0 +1,164 @@
+%option noyywrap
+%option header-file="lexer.h"
+
+%{
+#include "parser.tab.h"
+
+#include "../include/ast/ast_node.h"
+#include "../include/ast/ast_node_type.h"
+
+%}
+
+%%
+
+\= { return ASSIGMENT; }
+\+ { return PLUS; }
+\- { return MINUS; }
+\* { return MUL; }
+\/ { return DIV; }
+\== { return EQ; }
+\<> { return NOT_EQ; }
+\> { return MORE; }
+\< { return LESS; }
+or { return OR; }
+and { return AND; }
+dim { return DIM; }
+function { return FUNCTION; }
+
+break   { 
+            yylval.node = malloc(sizeof(struct AstNode)); 
+            ast_node_init(yylval.node, AST_TYPE_BREAK); 
+            return BREAK; 
+        }
+
+do { return DO; }
+
+while   {
+            yylval.node = malloc(sizeof(struct AstNode));
+            ast_node_init(yylval.node, AST_TYPE_WHILE);
+            return WHILE;
+        }
+
+until   {
+            yylval.node = malloc(sizeof(struct AstNode));
+            ast_node_init(yylval.node, AST_TYPE_UNTIL);
+            return UNTIL;
+        }
+
+loop    { return LOOP; }
+
+wend    { return WEND; }
+
+if  { return IF; }
+then { return THEN; }
+else { return ELSE; }
+end  { return END; }
+
+
+int {
+    yylval.node = malloc(sizeof(struct AstNode));
+    ast_node_init(yylval.node, AST_TYPE_INT_TYPE);
+    return INT_TYPE;
+}
+
+bool {
+    yylval.node = malloc(sizeof(struct AstNode));
+    ast_node_init(yylval.node, AST_TYPE_BOOL_TYPE);
+    return BOOL_TYPE;
+}
+
+byte {
+    yylval.node = malloc(sizeof(struct AstNode));
+    ast_node_init(yylval.node, AST_TYPE_BYTE_TYPE);
+    return BYTE_TYPE;
+}
+
+uint {
+    yylval.node = malloc(sizeof(struct AstNode));
+    ast_node_init(yylval.node, AST_TYPE_UINT_TYPE);
+    return UINT_TYPE;
+}
+
+long {
+    yylval.node = malloc(sizeof(struct AstNode));
+    ast_node_init(yylval.node, AST_TYPE_LONG_TYPE);
+    return LONG_TYPE;
+}
+
+ulong {
+    yylval.node = malloc(sizeof(struct AstNode));
+    ast_node_init(yylval.node, AST_TYPE_ULONG_TYPE);
+    return ULONG_TYPE;
+}
+
+char {
+    yylval.node = malloc(sizeof(struct AstNode));
+    ast_node_init(yylval.node, AST_TYPE_CHAR_TYPE);
+    return CHAR_TYPE;
+}
+
+string {
+    yylval.node = malloc(sizeof(struct AstNode));
+    ast_node_init(yylval.node, AST_TYPE_STRING_TYPE);
+    return STRING_TYPE;
+}
+
+as { return AS; }
+
+\, { return COMMA; }
+
+\; { return SEMICOLON; }
+
+[0-9]+  { 
+            yylval.node = malloc(sizeof(struct AstNode));
+            ast_node_init(yylval.node, AST_TYPE_DEC);
+            printf("ALLOC %p\n", yylval.node);
+            return DEC;
+        }
+
+
+true|false  {
+                yylval.node = malloc(sizeof(struct AstNode));
+                ast_node_init(yylval.node, AST_TYPE_BOOL);
+                return BOOL;
+            }
+
+
+\"[^\"\\]*(?:\\.[^\"\\]*)*\"    {
+                                    yylval.node = malloc(sizeof(struct AstNode));
+                                    ast_node_init(yylval.node, AST_TYPE_STR);
+                                    return STR;
+                                }
+
+
+0[xX][0-9A-Fa-f]+   {
+                        yylval.node = malloc(sizeof(struct AstNode));
+                        ast_node_init(yylval.node, AST_TYPE_HEX);
+                        return HEX;
+                    }
+
+
+0[bB][01]+  {
+                yylval.node = malloc(sizeof(struct AstNode));
+                ast_node_init(yylval.node, AST_TYPE_BITS);
+                return BITS;
+            }
+
+
+[a-zA-Z_][a-zA-Z_0-9]*  {
+                            yylval.node = malloc(sizeof(struct AstNode));
+                            ast_node_init(yylval.node, AST_TYPE_IDENTIFIER);
+                            return IDENTIFIER;
+                        }
+
+
+
+
+"(" { return BR_OPEN; }
+")" { return BR_CLOSE; }
+
+
+[ \t\n] { /* Ignore whitespaces */  }
+
+
+%%

@@ -5,7 +5,6 @@
 #include "ast/ast_node.h"
 #include "parser.tab.h"
 
-
 struct AstNode* parse()
 {
     struct AstNode* ast_result = NULL;
@@ -14,5 +13,6 @@ struct AstNode* parse()
         free(ast_result);
         return NULL;
     }
+
     return ast_result;
 }

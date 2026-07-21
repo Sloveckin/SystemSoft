@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <malloc.h>
 
+#include "ast/ast_node_type.h"
 #include "ast/ast_node.h"
 #include "parser/parser.h"
 
@@ -11,6 +12,10 @@ int main()
         return -1;
     }
 
-    ast_node_destructor(ast);
+    printf("Ast type = %s\n", ast_type_to_string[ast->type]);
+    
+
+    ast_node_destructor(&ast);
+    
     return 0;
 }
