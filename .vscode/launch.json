@@ -9,13 +9,13 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/main",
-            "args": ["./files/input.txt", "--not_exist_flag"],
+            "args": ["/home/slava/itmo/SystemSoft/files/input.txt", "--ast-graph"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [
                 {
                     "name": "LD_LIBRARY_PATH",
-                    "value": "${workspaceFolder}/front-end:${env:LD_LIBRARY_PATH}"
+                    "value": "${workspaceFolder}/front-end:${workspaceFolder}/colc:${env:LD_LIBRARY_PATH}"
                 }
             ],
             "externalConsole": false,

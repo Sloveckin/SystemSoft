@@ -1,3 +1,6 @@
+CFLAGS+=\
+  -g
+
 INCLUDE+=\
 	-I../colc/include\
 	-I../front-end/include\
@@ -10,7 +13,7 @@ OBJ+=\
 	ast.o
 
 build:
-	gcc $(INCLUDE) $(SRC) -c
+	gcc $(CFLAGS) $(INCLUDE) $(SRC) -c
 	ar rcs libdgml.a $(OBJ)
 	rm -f *.o
 

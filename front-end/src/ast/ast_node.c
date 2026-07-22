@@ -27,6 +27,7 @@ void ast_node_init(struct AstNode* node, const enum AstNodeType type)
 {
     node->type = type;
     node->text = NULL;
+    node->id = 0;
 
     const ObjectInfo obj_info = {
         .size = sizeof(struct AstNode*),
@@ -39,11 +40,19 @@ void ast_node_init(struct AstNode* node, const enum AstNodeType type)
 int ast_node_init_with_text(struct AstNode* node, const enum AstNodeType type, const char* text)
 {
     node->type = type;
+    node->id = 0;
     node->text = malloc((strlen(text) + 1) * sizeof(char));
     if (node->text == NULL) {
         return -1;
     }
     strcpy(node->text, text);
+
+    const ObjectInfo obj_info = {
+        .size = sizeof(struct AstNode*),
+        .destructor = ast_node_destructor,
+        .copy = NULL,
+    };
+    vector_init(&node->children, obj_info);
     
     return 0;
 }

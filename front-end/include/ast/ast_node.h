@@ -8,6 +8,7 @@ struct AstNode {
     enum AstNodeType type;
     Vector children;
     char* text;
+    int id;
 };
 
 void ast_node_init(struct AstNode* node, const enum AstNodeType type);
