@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/main",
-            "args": ["/home/slava/itmo/SystemSoft/files/input.txt", "--ast-graph"],
+            "args": ["/home/slava/itmo/SystemSoft/files/input2.txt", "--ast-graph"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [

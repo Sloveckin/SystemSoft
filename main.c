@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <malloc.h>
 
-#include "ast/ast_node_type.h"
 #include "ast/ast_node.h"
 #include "colc/cstring.h"
 #include "colc/vector.h"
@@ -31,6 +30,24 @@ FILE* create_dgml_file(const char* file_name)
     return dgml_file;
 }
 
+int draw_ast_graph(struct AstNode* ast, const char* file_name)
+{
+    FILE* dgml_file = create_dgml_file(file_name);
+    if (dgml_file == NULL) {
+        return -1;
+    }
+
+    int err = from_ast_to_dgml(ast, dgml_file);
+    if (err != 0) {
+        //ast_node_destructor(&ast);
+        fclose(dgml_file);
+        return err;
+    }
+
+    fclose(dgml_file);
+    return 0;
+}
+
 int handle_files(struct UserInput* user_input)
 {
     const enum Flag ast_flag = AstGraph;
@@ -48,9 +65,9 @@ int handle_files(struct UserInput* user_input)
         if (ast == NULL) {
             fclose(input_file);
             return -2;
-        }   
+        }
         
-        if (draw_ast_tree) {
+        /*if (draw_ast_tree) {
             FILE* dgml_file = create_dgml_file(file_name->buffer);
             if (dgml_file == NULL) {
                 return -1;
@@ -65,6 +82,15 @@ int handle_files(struct UserInput* user_input)
             }
 
             fclose(dgml_file);
+        }*/
+
+        if (draw_ast_tree) {
+            int err = draw_ast_graph(ast, file_name->buffer);
+            if (err != 0) {
+                ast_node_destructor(&ast);
+                fclose(input_file);
+                return err;
+            }
         }
         
         ast_node_destructor(&ast);

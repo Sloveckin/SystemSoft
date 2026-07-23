@@ -7,8 +7,16 @@
 
 static int print_node(struct AstNode* node, FILE* file)
 {
+    
+    if (node == NULL) {
+        return 0;
+    }
+    
     if (node->text != NULL) {
-        fprintf(file, "<Node Id=\"%d\" Label=\"%s: %s\" />\n", node->id, ast_type_to_string[node->type], node->text);
+        int res = fprintf(file, "<Node Id=\"%d\" Label=\"%s: %s\" />\n", node->id, ast_type_to_string[node->type], node->text);
+        if (res != EOF) {
+            return res;
+        }
         return 0;
     }
     
@@ -47,17 +55,25 @@ static int print_nodes(struct AstNode* node, FILE* file)
 
 
 static int print_link(struct AstNode* node, FILE* file)
-{
+{   
 
     if (node->text != NULL) {
         return 0;
     }
     
-    //fprintf(file, "<Node Id=\"%zu\" Label=\"%s\" />\n", cur_index, ast_type_to_string[node->type]);
     for (size_t i = 0; i < node->children.size; i++) {
         struct AstNode** child = vector_get(&node->children, i);
-        fprintf(file, "<Link Source=\"%d\" Target=\"%d\"/>\n", node->id, (*child)->id);
-        print_link(*child, file);
+        if (*child == NULL) {
+            continue;
+        }
+        int res = fprintf(file, "<Link Source=\"%d\" Target=\"%d\"/>\n", node->id, (*child)->id);
+        if (res == EOF) {
+            return res;
+        }
+        res = print_link(*child, file);
+        if (res != 0) {
+            return res;
+        }
     }
   
     return 0;
@@ -83,6 +99,10 @@ static int print_links(struct AstNode* node, FILE* file)
 
 static void set_nodes_id(struct AstNode* node, int* id)
 {
+    if (node == NULL) {
+        return;
+    }
+    
     node->id = (*id)++;
     for (size_t i = 0; i < node->children.size; i++) {
         struct AstNode** child = vector_get(&node->children, i);
