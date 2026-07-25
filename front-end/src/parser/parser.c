@@ -6,16 +6,20 @@
 #include "parser.tab.h"
 
 extern FILE *yyin;
+extern int yylex_destroy();
 
 struct AstNode* parse(FILE* file)
 {
     yyin = file;
-    struct AstNode* ast_result = NULL;
-    int res = yyparse(&ast_result);
+    struct AstNode* ast_result = malloc(sizeof(struct AstNode));
+    int res = yyparse(ast_result);
     if (res != 0) {
+        yylex_destroy();
         free(ast_result);
         return NULL;
     }
+
+    yylex_destroy();
 
     return ast_result;
 }

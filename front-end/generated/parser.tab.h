@@ -135,7 +135,7 @@ struct YYLTYPE
 extern YYSTYPE yylval;
 extern YYLTYPE yylloc;
 
-int yyparse (struct AstNode** root);
+int yyparse (struct AstNode* root);
 
 
 #endif /* !YY_YY_GENERATED_PARSER_TAB_H_INCLUDED  */

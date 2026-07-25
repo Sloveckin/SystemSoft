@@ -2,6 +2,10 @@
 #include <malloc.h>
 
 #include "ast/ast_node.h"
+#include "backend/common/function.h"
+#include "backend/error/error.h"
+#include "backend/semantic_analysis/semantic_analysis.h"
+#include "backend/semantic_analysis/semantic_analysis_context.h"
 #include "colc/cstring.h"
 #include "colc/vector.h"
 #include "dgml/include/dgml/ast.h"
@@ -9,7 +13,7 @@
 #include "user_input.h"
 #include "dgml/ast.h"
 
-FILE* create_dgml_file(const char* file_name)
+static FILE* create_dgml_file(const char* file_name)
 {
     const size_t len_dgml_file_name = strlen(file_name) + 6;
     char* dgml_file_name = malloc(len_dgml_file_name * sizeof(char));
@@ -30,16 +34,17 @@ FILE* create_dgml_file(const char* file_name)
     return dgml_file;
 }
 
-int draw_ast_graph(struct AstNode* ast, const char* file_name)
+static int draw_ast_graph(struct AstNode* ast, const char* file_name)
 {
     FILE* dgml_file = create_dgml_file(file_name);
     if (dgml_file == NULL) {
+        puts("Error while writing .dmgl file");
         return -1;
     }
 
     int err = from_ast_to_dgml(ast, dgml_file);
     if (err != 0) {
-        //ast_node_destructor(&ast);
+        puts("Error while writing .dmgl file");
         fclose(dgml_file);
         return err;
     }
@@ -48,7 +53,17 @@ int draw_ast_graph(struct AstNode* ast, const char* file_name)
     return 0;
 }
 
-int handle_files(struct UserInput* user_input)
+static int handle_function(struct Function* function, struct AstNode* node)
+{
+    int err = function_init(function, node);
+    if (err != 0) {
+        return err;
+    }
+
+    return 0;
+}
+
+static int handle_files(struct UserInput* user_input)
 {
     const enum Flag ast_flag = AstGraph;
     bool draw_ast_tree = vector_contains(&user_input->flags, &ast_flag, flag_compare);
@@ -61,40 +76,74 @@ int handle_files(struct UserInput* user_input)
             return -1;
         }
 
-        struct AstNode* ast = parse(input_file);
-        if (ast == NULL) {
-            fclose(input_file);
+        struct AstNode* root = parse(input_file);
+        fclose(input_file);
+        if (root == NULL) {
             return -2;
         }
-        
-        /*if (draw_ast_tree) {
-            FILE* dgml_file = create_dgml_file(file_name->buffer);
-            if (dgml_file == NULL) {
-                return -1;
-            }
-
-            int err = from_ast_to_dgml(ast, dgml_file);
-            if (err != 0) {
-                ast_node_destructor(&ast);
-                fclose(input_file);
-                fclose(dgml_file);
-                return err;
-            }
-
-            fclose(dgml_file);
-        }*/
 
         if (draw_ast_tree) {
-            int err = draw_ast_graph(ast, file_name->buffer);
+            int err = draw_ast_graph(root, file_name->buffer);
             if (err != 0) {
-                ast_node_destructor(&ast);
-                fclose(input_file);
+                ast_node_destructor(&root);
                 return err;
             }
         }
+
+        struct AstNode** source_item_nodes = vector_get(&root->children, 0);
+        if (*source_item_nodes == NULL) {
+            ast_node_destructor(&root);
+            return 0;
+        }
+
+        for (size_t j = 0; j < (*source_item_nodes)->children.size; j++) {
+            struct AstNode** function_node = vector_get(&(*source_item_nodes)->children, j);
+
+            Vector errors;
+            const ObjectInfo object_info = {
+                .size = sizeof(struct Error),
+                .copy = error_copy,
+                .destructor = error_desctructor,
+            };
+            int err = vector_init(&errors, object_info);
+            if (err != 0) {
+                ast_node_destructor(&root);
+                return err;
+            }
+
+            struct SemanticAnalysisContext ctx;
+            err = semantic_analysis_context_init(&ctx);
+            if (err != 0) {
+                vector_free(&errors);
+                ast_node_destructor(&root);
+                return err;
+            }
+            
+            err = semantic_analysis(*function_node, &errors, &ctx);
+            if (err != 0) {
+                semantic_analysis_context_free(&ctx);
+                vector_free(&errors);
+                ast_node_destructor(&root);
+                return err;
+            }
+
+            if (errors.size == 0) {
+                /*struct Function function;
+                handle_function(&function, *function_node);
+                function_free(&function);*/
+            } else {
+                for (size_t k = 0; k < errors.size; k++) {
+                    struct Error* pointer = vector_get(&errors, k);
+                    puts(error_to_str(pointer));
+                }
+            }
+            
+            semantic_analysis_context_free(&ctx);
+            vector_free(&errors);
+        }
+
         
-        ast_node_destructor(&ast);
-        fclose(input_file);
+        ast_node_destructor(&root);
     }
     
     return 0;

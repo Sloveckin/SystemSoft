@@ -1,13 +1,13 @@
 CFLAGS+=\
 	-g \
-	-fsanitize=leak \
-	-fsanitize=address \
-	-fsanitize=pointer-compare \
-	-fsanitize=pointer-subtract \
-	-fsanitize=undefined \
-	-fsanitize-address-use-after-scope \
-	-Wextra \
-	-Wall \
+	#-fsanitize=leak \
+	#-fsanitize=address \
+	#-fsanitize=pointer-compare \
+	#-fsanitize=pointer-subtract \
+	#-fsanitize=undefined \
+	#-fsanitize-address-use-after-scope \
+	#-Wextra \
+	#-Wall \
 
 INCLUDE+=\
 	-Igenerated\

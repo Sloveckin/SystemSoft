@@ -6,7 +6,7 @@
 #include <assert.h>
 
 int yylex();
-void yyerror(struct AstNode**, char*);
+void yyerror(struct AstNode*, char*);
 
 %}
 
@@ -25,7 +25,7 @@ void yyerror(struct AstNode**, char*);
 } <node>
 
 
-%parse-param { struct AstNode** root }
+%parse-param { struct AstNode* root }
 
 
 %type source
@@ -112,9 +112,10 @@ void yyerror(struct AstNode**, char*);
 
 %%
 
-source: source_item_list  { 
-                            *root = $1; 
-                        }
+source: source_item_list    {
+                                ast_node_init(root, AST_TYPE_ROOT);
+                                vector_push(&root->children, &$1);
+                            }
 ;
 
 statement:  var { $$ = $1; }
@@ -125,8 +126,7 @@ statement:  var { $$ = $1; }
         |   expression { $$ = $1; }
 ;                                         
 
-statement_list:
-            | { /* Empty statement list */ }
+statement_list: %empty { $$ = NULL; }
             | statement     {
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_STATMENT_LIST);
@@ -142,7 +142,7 @@ statement_list:
 source_item: func_def { $$ = $1; }
 ;
 
-source_item_list: 
+source_item_list: %empty { $$ = NULL; }
             |    source_item    {
                                     struct AstNode* node = malloc(sizeof(struct AstNode));
                                     ast_node_init(node, AST_TYPE_SOURCE_ITEM_LIST);
@@ -155,8 +155,7 @@ source_item_list:
                                                 }
 ;
 
-return_type_opt:
-            | 
+return_type_opt: %empty { $$ = NULL; }
             | AS type_ref { $$ = $2; }
 ;
 
@@ -179,18 +178,17 @@ func_def: FUNCTION func_signature statement_list END FUNCTION   {
                                                                 }
 ;
 
-arg_def_list:
-            | 
+arg_def_list: %empty { $$ = NULL; }
             | arg_def   {
                             struct AstNode* node = malloc(sizeof(struct AstNode));
                             ast_node_init(node, AST_TYPE_ARG_DEF_LIST);
                             vector_push(&node->children, &$1);
                             $$ = node;
                         }
-            | arg_def_list COMMA arg_def  {
-                                        vector_push(&$1->children, &$3);
-                                        $$ = $1;
-                                    }
+            | arg_def_list COMMA arg_def    {
+                                                vector_push(&$1->children, &$3);
+                                                $$ = $1;
+                                            }
 ;
 
 type_ref: custom { $$ = $1; }
@@ -218,7 +216,13 @@ var: DIM identifier_list AS type_ref    {
                                         }
 ;
 
-identifier_list: IDENTIFIER { $$ = $1; }
+identifier_list: IDENTIFIER 
+                            {
+                                struct AstNode* node = malloc(sizeof(struct AstNode));
+                                ast_node_init(node, AST_TYPE_IDENTIFIER_LIST);
+                                vector_push(&node->children, &$1);
+                                $$ = node;
+                            }
             |    identifier_list COMMA IDENTIFIER {
                                                 vector_push(&$1->children, &$3);
                                                 $$ = $1;
@@ -391,8 +395,7 @@ expression: expr SEMICOLON { $$ = $1; }
 braces: BR_OPEN expr BR_CLOSE { $$ = $2; }
 ;
 
-expr_list:
-        |
+expr_list: %empty { $$ = NULL; }
         | expr  {
                     struct AstNode* node = malloc(sizeof(struct AstNode));
                     ast_node_init(node, AST_TYPE_EXPR_LIST);
@@ -435,7 +438,7 @@ literal: BOOL { $$ = $1; }
 
 %%
 
-void yyerror(struct AstNode** node, char* error)
+void yyerror(struct AstNode* node, char* error)
 {
     printf("Error = %s\n", error);
 }

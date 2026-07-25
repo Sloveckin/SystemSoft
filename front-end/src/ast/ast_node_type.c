@@ -47,4 +47,5 @@ const char* ast_type_to_string[] = {
     "FUNC_DEF",
     "SOURCE_ITEM_LIST",
     "ARG_DEF_LIST",
+    "IDENTIFIER_LIST"
 };
