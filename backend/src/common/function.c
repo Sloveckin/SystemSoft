@@ -11,9 +11,9 @@
 #include <string.h>
 #include <assert.h>
 
-int function_init(struct Function* function, struct AstNode *node)
+int function_init(struct Function* function, struct AstNode *node, struct Signature* signature)
 {
-    struct Signature* signature = malloc(sizeof(struct Signature));
+    /*struct Signature* signature = malloc(sizeof(struct Signature));
     if (signature == NULL) {
         return -1;
     }
@@ -23,7 +23,7 @@ int function_init(struct Function* function, struct AstNode *node)
     if (res != 0) {
         free(signature);
         return res;
-    }
+    }*/
     function->signature = signature;
 
     struct AstNode** statement_list = vector_get(&node->children, 1);
@@ -45,7 +45,7 @@ int function_init(struct Function* function, struct AstNode *node)
 
 void function_free(struct Function* function)
 {
-    signature_free(function->signature);
+    //signature_free(function->signature);
     free(function->signature);
     if (function->cfg != NULL) {
         control_graph_free(function->cfg);

@@ -31,6 +31,8 @@ int user_input_init(struct UserInput* user_input)
         return res;
     }
 
+    user_input->print_log = false;
+
     return 0;
 }
 
@@ -43,6 +45,8 @@ int read_user_input(struct UserInput* user_input, int argc, char** argv)
             if (res != 0) {
                 return res;
             }
+        } else if (strcmp(argv[i], "--print-log") == 0) {
+            user_input->print_log = true;
         } else if (strncmp(argv[i], "-", 1) == 0) {
             printf("Unknown flag: %s\n", argv[i]);
             return -1;
@@ -73,5 +77,5 @@ void user_input_free(struct UserInput* user_input)
 int flag_compare(const void* a, const void* b)
 {
     // I don't know how to fix it..
-    return (enum Flag) a == (enum Flag) b;
+    return *(enum Flag*) a == *(enum Flag*) b;
 }

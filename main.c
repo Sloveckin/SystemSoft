@@ -3,15 +3,17 @@
 
 #include "ast/ast_node.h"
 #include "backend/common/function.h"
+#include "backend/common/signature.h"
 #include "backend/error/error.h"
 #include "backend/semantic_analysis/semantic_analysis.h"
 #include "backend/semantic_analysis/semantic_analysis_context.h"
 #include "colc/cstring.h"
+#include "colc/map.h"
+#include "colc/object_info.h"
 #include "colc/vector.h"
-#include "dgml/include/dgml/ast.h"
 #include "parser/parser.h"
 #include "user_input.h"
-#include "dgml/ast.h"
+#include "dgml/from_ast.h"
 
 static FILE* create_dgml_file(const char* file_name)
 {
@@ -53,9 +55,9 @@ static int draw_ast_graph(struct AstNode* ast, const char* file_name)
     return 0;
 }
 
-static int handle_function(struct Function* function, struct AstNode* node)
+static int handle_function(struct Function* function, struct AstNode* node, struct Signature *signature)
 {
-    int err = function_init(function, node);
+    int err = function_init(function, node, signature);
     if (err != 0) {
         return err;
     }
@@ -96,14 +98,32 @@ static int handle_files(struct UserInput* user_input)
             return 0;
         }
 
+
+        Map signatures;
+        const ObjectInfo key_info = {
+            .size = sizeof(CString),
+            .copy = cstring_copy,
+            .destructor = cstring_free,
+        };
+        const ObjectInfo value_info = {
+            .size = sizeof(struct Signature*),
+            .copy = NULL,
+            .destructor = signature_ptr_free,
+        };
+        int err = map_init(&signatures, cstring_hash, cstring_comp, key_info, value_info);
+        if (err != 0) {
+            ast_node_destructor(&root);
+            return err;
+        }
+
         for (size_t j = 0; j < (*source_item_nodes)->children.size; j++) {
             struct AstNode** function_node = vector_get(&(*source_item_nodes)->children, j);
 
             Vector errors;
             const ObjectInfo object_info = {
                 .size = sizeof(struct Error),
-                .copy = error_copy,
-                .destructor = error_desctructor,
+                .copy = NULL,
+                .destructor = NULL,
             };
             int err = vector_init(&errors, object_info);
             if (err != 0) {
@@ -112,8 +132,9 @@ static int handle_files(struct UserInput* user_input)
             }
 
             struct SemanticAnalysisContext ctx;
-            err = semantic_analysis_context_init(&ctx);
+            err = semantic_analysis_context_init(&ctx, &signatures);
             if (err != 0) {
+                map_free(&signatures);
                 vector_free(&errors);
                 ast_node_destructor(&root);
                 return err;
@@ -121,17 +142,31 @@ static int handle_files(struct UserInput* user_input)
             
             err = semantic_analysis(*function_node, &errors, &ctx);
             if (err != 0) {
+                map_free(&signatures);
                 semantic_analysis_context_free(&ctx);
                 vector_free(&errors);
                 ast_node_destructor(&root);
                 return err;
             }
 
+            if (user_input->print_log == true) {
+                printf("File %s\n", file_name->buffer);
+                puts("Semantic analysis completed");
+            }
             if (errors.size == 0) {
+
+                if (user_input->print_log == true) {
+                    puts("No semantic errors deteceted");
+                }
+
+
                 /*struct Function function;
                 handle_function(&function, *function_node);
                 function_free(&function);*/
             } else {
+                if (user_input->print_log == true) {
+                    puts("Semantic errors:");
+                }
                 for (size_t k = 0; k < errors.size; k++) {
                     struct Error* pointer = vector_get(&errors, k);
                     puts(error_to_str(pointer));
@@ -142,7 +177,7 @@ static int handle_files(struct UserInput* user_input)
             vector_free(&errors);
         }
 
-        
+        map_free(&signatures);
         ast_node_destructor(&root);
     }
     

@@ -1,4 +1,4 @@
-#include "dgml/ast.h"
+#include "dgml/from_ast.h"
 
 #include <linux/limits.h>
 #include <assert.h>
@@ -14,7 +14,7 @@ static int print_node(struct AstNode* node, FILE* file)
     
     if (node->text != NULL) {
         int res = fprintf(file, "<Node Id=\"%d\" Label=\"%s: %s\" />\n", node->id, ast_type_to_string[node->type], node->text);
-        if (res != EOF) {
+        if (res == EOF) {
             return res;
         }
         return 0;

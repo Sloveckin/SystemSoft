@@ -139,7 +139,8 @@ statement_list: %empty { $$ = NULL; }
                                         }
 ;
 
-source_item: func_def { $$ = $1; }
+source_item: func_signature { $$ = $1; }
+        |    func_def { $$ = $1; }
 ;
 
 source_item_list: %empty { $$ = NULL; }

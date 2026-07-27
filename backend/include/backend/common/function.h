@@ -10,7 +10,7 @@ struct Function {
     struct CfgNode* cfg;
 };
 
-int function_init(struct Function* function, struct AstNode* node);
+int function_init(struct Function* function, struct AstNode* node, struct Signature* signature);
 
 void function_free(struct Function* function);
 

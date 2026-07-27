@@ -1,5 +1,5 @@
-#ifndef DGML_AST_H
-#define DGML_AST_H
+#ifndef DGML_FROM_AST_H
+#define DGML_FROM_AST_H
 
 #include <stdio.h>
 

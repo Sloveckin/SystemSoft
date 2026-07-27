@@ -4,12 +4,14 @@
 #include "colc/vector.h"
 
 enum Flag {
-    AstGraph
+    AstGraph,
+    Log
 };
 
 struct UserInput {
     Vector input_files;
     Vector flags;
+    bool print_log;
 };
 
 int flag_compare(const void* a, const void* b);

@@ -3,17 +3,23 @@ CFLAGS+=\
 
 INCLUDE+=\
 	-I../colc/include\
-	-I../front-end/include\
+	-I../frontend/include\
 	-Iinclude
 
+LPATH+=\
+  -L../front-end\
+
+LIBS+=\
+  -lfrontend
+
 SRC+=\
-	src/ast.c
+	src/from_ast.c
 
 OBJ+=\
-	ast.o
+	from_ast.o
 
 build:
-	gcc $(CFLAGS) $(INCLUDE) $(SRC) -c
+	gcc $(CFLAGS) $(INCLUDE) $(LPATH) $(SRC) $(LIBS) -c
 	ar rcs libdgml.a $(OBJ)
 	rm -f *.o
 

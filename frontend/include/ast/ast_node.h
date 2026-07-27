@@ -1,7 +1,7 @@
 #ifndef AST_NODE_H
 #define AST_NODE_H
 
-#include "ast/ast_node_type.h"
+#include "ast_node_type.h"
 #include "colc/vector.h"
 
 struct AstNode {

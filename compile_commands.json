@@ -4,7 +4,7 @@
       "/usr/bin/gcc",
       "-c",
       "-g",
-      "-Ifront-end/include",
+      "-Ifrontend/include",
       "-Icolc/include",
       "-Iuser-input/include",
       "-Idgml/include",

@@ -9,6 +9,7 @@
 #include "colc/cstring.h"
 #include "colc/map.h"
 #include "colc/object_info.h"
+#include "colc/vector.h"
 
 static char* get_name(struct AstNode* node)
 {
@@ -27,6 +28,8 @@ static enum Type get_type(struct AstNode* node)
 {
     if (node->type == AST_TYPE_INT_TYPE) {
         return TYPE_INT;
+    } else if (node->type == AST_TYPE_BOOL_TYPE) {
+        return TYPE_BOOL;
     }
 
     assert(0);
@@ -52,7 +55,7 @@ static int get_argument(struct AstNode* node, struct Variable* variable)
     return 0;
 }
 
-static int get_arguments(struct AstNode* node, Map* variables)
+static int get_arguments(struct AstNode* node, Vector* variables)
 {
     assert(node->type == AST_TYPE_ARG_DEF_LIST);
 
@@ -65,22 +68,28 @@ static int get_arguments(struct AstNode* node, Map* variables)
             return err;
         }
 
-        CString name;
+        /*CString name;
         err = cstring_init(&name, variable.name);
         if (err != 0) {
             variable_free(&variable);
             return err;
-        }
+        }*/
 
-        err = map_insert(variables, &name, &variable);
+        /*err = map_insert(variables, &name, &variable);
         if (err != 0) {
             cstring_free(&name);
+            variable_free(&variable);
+            return err;
+        }*/
+
+        err = vector_push(variables, &variable);
+        if (err != 0) {
             variable_free(&variable);
             return err;
         }
 
         variable_free(&variable);
-        cstring_free(&name);
+        //cstring_free(&name);
     }
 
     return 0;
@@ -94,7 +103,7 @@ int signature_init(struct Signature* signature, struct AstNode* node)
     assert(*name_node);
     char* name = get_name(*name_node);
 
-    Map variables;
+    /*Map variables;
     const ObjectInfo key_info = {
         .size = sizeof(CString),
         .copy = cstring_copy,
@@ -108,6 +117,16 @@ int signature_init(struct Signature* signature, struct AstNode* node)
 
     int res = map_init_with_capacity(&variables, cstring_hash, cstring_comp, key_info, value_info, MAP_DEFAULT_CAPACITY);
     if (res != 0) {
+        return res;;    }*/
+
+    Vector variables;
+    const ObjectInfo info = {
+        .size = sizeof(struct Variable),
+        .copy = variable_copy,
+        .destructor = variable_destructor,
+    };
+    int res = vector_init(&variables, info);
+    if (res != 0) {
         return res;
     }
     
@@ -115,7 +134,7 @@ int signature_init(struct Signature* signature, struct AstNode* node)
     if (*arg_def_list_node != NULL) {
         res = get_arguments(*arg_def_list_node,  &variables);
         if (res != 0) {
-            map_free(&variables);
+            vector_free(&variables);
             return res;
         }
     }
@@ -134,6 +153,13 @@ int signature_init(struct Signature* signature, struct AstNode* node)
 
 void signature_free(struct Signature* signature)
 {
-    map_free(&signature->arguments);
+    vector_free(&signature->arguments);
     free(signature->name);
+}
+
+void signature_ptr_free(void* value)
+{
+    struct Signature** signature = value;
+    signature_free(*signature);
+    free(*signature);
 }
