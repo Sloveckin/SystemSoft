@@ -8,7 +8,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/main",
+            "program": "${workspaceFolder}/clake",
             "args": ["/home/slava/itmo/SystemSoft/files/input1.txt", "--ast-graph"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

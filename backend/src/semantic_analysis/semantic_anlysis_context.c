@@ -1,11 +1,14 @@
-#include "backend/common/signature.h"
 #include "backend/semantic_analysis/semantic_analysis_context.h"
 
+#include <malloc.h>
+
+#include "backend/common/signature.h"
+#include "backend/program.h"
 #include "backend/common/variable.h"
 #include "colc/map.h"
 #include "colc/object_info.h"
 
-int semantic_analysis_context_init(struct SemanticAnalysisContext* ctx, Map* signatures)
+int semantic_analysis_context_init(struct SemanticContext* ctx, struct Program* program)
 {
     const ObjectInfo key_info = {
         .size = sizeof(CString),
@@ -28,13 +31,13 @@ int semantic_analysis_context_init(struct SemanticAnalysisContext* ctx, Map* sig
         return err;
     }
 
-    ctx->signatures = signatures;
+    ctx->program = program;
     ctx->cycle_counter = 0;
 
     return 0;
 }
 
-struct Variable* get_variable_by_name(struct SemanticAnalysisContext* ctx, CString* name)
+struct Variable* get_variable_by_name(struct SemanticContext* ctx, CString* name)
 {
     struct Variable* variable = map_get(&ctx->arguments, name);
     if (variable != NULL) {
@@ -44,18 +47,19 @@ struct Variable* get_variable_by_name(struct SemanticAnalysisContext* ctx, CStri
     return map_get(&ctx->variables, name); 
 }
 
-struct Signature* get_signature_by_name(struct SemanticAnalysisContext* ctx, CString* name)
+struct Signature* get_signature_by_name(struct SemanticContext* ctx, CString* name)
 {
-    struct Signature** pointer = map_get(ctx->signatures, name);
+    struct Signature** pointer = map_get(&ctx->program->signatures_ptr, name);
     if (pointer == NULL) {
         return NULL;
     }
     return *pointer;
 }
 
-
-void semantic_analysis_context_free(struct SemanticAnalysisContext* ctx)
+void semantic_analysis_context_free(struct SemanticContext* ctx)
 {
     map_free(&ctx->arguments);
     map_free(&ctx->variables);
+    //free(ctx);
 }
+

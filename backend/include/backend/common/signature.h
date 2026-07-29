@@ -8,6 +8,9 @@ struct Signature {
     char* name;
     enum Type return_type;
     Vector arguments;
+
+    // Don't need to clean it
+    struct AstNode* ast;
 };
 
 int signature_init(struct Signature* signature, struct AstNode* node);

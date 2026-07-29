@@ -3,22 +3,23 @@
 
 #include <stdbool.h>
 
+#include "backend/program.h"
 #include "colc/cstring.h"
 #include "colc/map.h"
 
-struct SemanticAnalysisContext {
-    Map *signatures;
+struct SemanticContext {
+    struct Program *program;
     Map arguments;
     Map variables;
     int cycle_counter;
 };
 
-int semantic_analysis_context_init(struct SemanticAnalysisContext* ctx, Map* signatures);
+int semantic_analysis_context_init(struct SemanticContext* ctx, struct Program* program);
 
-struct Variable* get_variable_by_name(struct SemanticAnalysisContext* ctx, CString* name);
+struct Variable* get_variable_by_name(struct SemanticContext* ctx, CString* name);
 
-struct Signature* get_signature_by_name(struct SemanticAnalysisContext* ctx, CString* name);
+struct Signature* get_signature_by_name(struct SemanticContext* ctx, CString* name);
 
-void semantic_analysis_context_free(struct SemanticAnalysisContext* ctx);
+void semantic_analysis_context_free(struct SemanticContext* ctx);
 
 #endif

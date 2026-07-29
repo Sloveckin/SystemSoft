@@ -6,8 +6,6 @@
 #include "ast/ast_node_type.h"
 #include "backend/common/variable.h"
 #include "backend/type/type.h"
-#include "colc/cstring.h"
-#include "colc/map.h"
 #include "colc/object_info.h"
 #include "colc/vector.h"
 
@@ -68,20 +66,6 @@ static int get_arguments(struct AstNode* node, Vector* variables)
             return err;
         }
 
-        /*CString name;
-        err = cstring_init(&name, variable.name);
-        if (err != 0) {
-            variable_free(&variable);
-            return err;
-        }*/
-
-        /*err = map_insert(variables, &name, &variable);
-        if (err != 0) {
-            cstring_free(&name);
-            variable_free(&variable);
-            return err;
-        }*/
-
         err = vector_push(variables, &variable);
         if (err != 0) {
             variable_free(&variable);
@@ -89,7 +73,6 @@ static int get_arguments(struct AstNode* node, Vector* variables)
         }
 
         variable_free(&variable);
-        //cstring_free(&name);
     }
 
     return 0;
@@ -102,22 +85,6 @@ int signature_init(struct Signature* signature, struct AstNode* node)
     struct AstNode** name_node = vector_get(&node->children, 0);
     assert(*name_node);
     char* name = get_name(*name_node);
-
-    /*Map variables;
-    const ObjectInfo key_info = {
-        .size = sizeof(CString),
-        .copy = cstring_copy,
-        .destructor = cstring_free,
-    };
-    const ObjectInfo value_info = {
-        .size = sizeof(struct Variable),
-        .copy = variable_copy,
-        .destructor = variable_destructor,
-    };
-
-    int res = map_init_with_capacity(&variables, cstring_hash, cstring_comp, key_info, value_info, MAP_DEFAULT_CAPACITY);
-    if (res != 0) {
-        return res;;    }*/
 
     Vector variables;
     const ObjectInfo info = {
@@ -147,6 +114,7 @@ int signature_init(struct Signature* signature, struct AstNode* node)
         signature->return_type = get_type(*return_type_node);
     }
     signature->name = name;
+    signature->ast = node;
 
     return 0;
 }

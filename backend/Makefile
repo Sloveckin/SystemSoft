@@ -1,15 +1,6 @@
 CFLAGS+=\
-  -c\
-	-g \
-    #-fsanitize=leak \
-    #-fsanitize=address \
-    #-fsanitize=pointer-compare \
-    #-fsanitize=pointer-subtract \
-    #-fsanitize=undefined \
-    #-fsanitize-address-use-after-scope \
-    #-Wextra \
-    #-Wall \
-    #-Werror
+  	-c\
+	-g
 
 INCLUDE+=\
 	-Iinclude/\
@@ -32,12 +23,25 @@ SRC+=\
 	src/type/type.c\
 	src/common/function.c\
 	src/common/signature.c\
-	src/common/variable.c
+	src/common/variable.c\
+	src/program.c
+
+OBJ+=\
+  program.o\
+	semantic_analysis.o\
+	type.o\
+	semantic_anlysis_context.o\
+	function.o\
+	control_flow_graph_node.o\
+	operation_tree_node.o\
+	error.o\
+	signature.o\
+	variable.o\
 
 build:
 	gcc $(CFLAGS) $(INCLUDE) $(SRC) $(LDPATH) $(LIBS) -c
-	ar rcs libbackend.a semantic_analysis.o type.o semantic_anlysis_context.o function.o control_flow_graph_node.o operation_tree_node.o error.o signature.o variable.o 
-	rm *.o
+	ar rcs libbackend.a $(OBJ)
+	rm -rf *.o
 
 clean:
 	rm -f *.o *.a

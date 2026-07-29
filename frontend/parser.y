@@ -109,6 +109,7 @@ void yyerror(struct AstNode*, char*);
 %type <node> func_def
 %type <node> source_item
 %type <node> source_item_list
+%type <node> array
 
 %%
 
@@ -194,6 +195,7 @@ arg_def_list: %empty { $$ = NULL; }
 
 type_ref: custom { $$ = $1; }
         | builtin { $$ = $1; }
+        | array { $$ = $1; }
 ;
 
 arg_def: IDENTIFIER AS type_ref {
@@ -228,6 +230,16 @@ identifier_list: IDENTIFIER
                                                 vector_push(&$1->children, &$3);
                                                 $$ = $1;
                                             }  
+;
+
+
+array: type_ref BR_OPEN expr BR_CLOSE   {
+                                            struct AstNode* node = malloc(sizeof(struct AstNode));
+                                            ast_node_init(node, AST_TYPE_ARRAY);
+                                            vector_push(&node->children, &$1);
+                                            vector_push(&node->children, &$3);
+                                            $$ = node;
+                                        }
 ;
 
 builtin:   INT_TYPE { $$ = $1; }

@@ -1,6 +1,7 @@
 #include "backend/semantic_analysis/semantic_analysis.h"
 
 #include <endian.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <assert.h>
@@ -10,9 +11,11 @@
 
 #include "ast/ast_node.h"
 #include "ast/ast_node_type.h"
+#include "backend/common/function.h"
 #include "backend/common/signature.h"
 #include "backend/common/variable.h"
 #include "backend/error/error.h"
+#include "backend/program.h"
 #include "backend/semantic_analysis/semantic_analysis_context.h"
 #include "backend/type/type.h"
 #include "colc/cstring.h"
@@ -52,7 +55,7 @@ static enum Type get_type(struct AstNode* node)
     assert(0);
 }
 
-static int check_variable_exist_by_name(CString* key, Map* map, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int check_variable_exist_by_name(CString* key, Map* map, Vector* errors, struct SemanticContext* ctx)
 {
     struct Variable* has_variable = map_get(map, key);
     if (has_variable == NULL) {
@@ -67,13 +70,13 @@ static int check_variable_exist_by_name(CString* key, Map* map, Vector* errors, 
     return err;
 }
 
-static bool check_variable_not_exist_by_name(CString* key, Map* map, Vector* errors, struct SemanticAnalysisContext* ctx)
+static bool check_variable_not_exist_by_name(CString* key, Map* map, Vector* errors, struct SemanticContext* ctx)
 {
     struct Variable* has_variable = map_get(map, key);
     return has_variable == NULL;
 }
 
-static int analyze_arg_def(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int analyze_arg_def(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
     assert(node->type == AST_TYPE_ARG_DEF);
 
@@ -111,7 +114,7 @@ static int analyze_arg_def(struct AstNode* node, Vector* errors, struct Semantic
     return err;
 }
 
-static int analyze_signature_arguments(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int analyze_signature_arguments(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
     if (node == NULL) {
         return 0;
@@ -130,46 +133,9 @@ static int analyze_signature_arguments(struct AstNode* node, Vector* errors, str
     return 0;
 }
 
-static int analyze_signature(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
-{
-    assert(node->type == AST_TYPE_FUNC_SIGNATURE);
-    struct AstNode **pointer;
-    pointer = vector_get(&node->children, 1);
-    struct AstNode* arg_def_list_node = *pointer;
-    int err = analyze_signature_arguments(arg_def_list_node, errors, ctx);
-    if (err != 0) {
-        return err;
-    }
 
-    struct Signature* signature = malloc(sizeof(struct Signature));
-    if (signature == NULL) {
-        return -1;
-    }
 
-    int res = signature_init(signature, node);
-    if (res != 0) {
-        free(signature);
-        return res;
-    }
-    CString function_name;
-    res = cstring_init(&function_name, signature->name);
-    if (res != 0) {
-        signature_free(signature);
-        return res;
-    }
-
-    res = map_insert(ctx->signatures, &function_name, &signature);
-    if (res != 0) {
-        signature_free(signature);
-        cstring_free(&function_name);
-        return res;
-    }
-
-    cstring_free(&function_name);
-    return 0;
-}
-
-static int check_is_variable(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, bool* error_occur, enum Type* lvalue_type)
+static int check_is_variable(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* lvalue_type)
 {
     CString variable_name;
     int err = cstring_init(&variable_name, node->text);
@@ -211,7 +177,7 @@ static int check_is_variable(struct AstNode* node, Vector* errors, struct Semant
     return 0;
 }
 
-static int is_lvalue(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, bool *error_occur, enum Type *lvalue_type)
+static int is_lvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool *error_occur, enum Type *lvalue_type)
 {
     if (node->type == AST_TYPE_IDENTIFIER) {
         return check_is_variable(node, errors, ctx, error_occur, lvalue_type);
@@ -227,7 +193,7 @@ static int is_lvalue(struct AstNode* node, Vector* errors, struct SemanticAnalys
     return err;
 }
 
-static int analyze_identifier_list(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, const enum Type type)
+static int analyze_identifier_list(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, const enum Type type)
 {
     for (size_t i = 0; i < node->children.size; i++) {
 
@@ -274,7 +240,7 @@ static int analyze_identifier_list(struct AstNode* node, Vector* errors, struct 
     return 0;
 }
 
-static int analyze_variable_creation(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int analyze_variable_creation(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
     struct AstNode** pointer = vector_get(&node->children, 1);
     struct AstNode* type_node = *pointer;
@@ -293,9 +259,9 @@ static int analyze_variable_creation(struct AstNode* node, Vector* errors, struc
 }
 
 
-static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, bool* error_occur, enum Type* type);
+static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type);
 
-static int analyze_left_and_right(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, bool* error_occur, enum Type* left_type, enum Type* right_type)
+static int analyze_left_and_right(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* left_type, enum Type* right_type)
 {
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* left = *pointer;
@@ -345,7 +311,7 @@ static int analyze_left_and_right(struct AstNode* node, Vector* errors, struct S
     return 0;
 }
 
-static int analyze_binary_comparing(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, bool* error_occur, enum Type* type)
+static int analyze_binary_comparing(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type)
 {
     enum Type left_type;
     enum Type right_type;
@@ -377,7 +343,7 @@ static int analyze_binary_comparing(struct AstNode* node, Vector* errors, struct
     return 0;
 }
 
-static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, bool* error_occur, enum Type* type, const bool is_boolean_operation)
+static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type, const bool is_boolean_operation)
 {
     enum Type left_type;
     enum Type right_type;
@@ -427,7 +393,7 @@ static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct
     return 0;
 }
 
-static int analyze_variable_like_rvalue(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, bool* error_occur, enum Type* type)
+static int analyze_variable_like_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type)
 {
     CString name;
     int err = cstring_init(&name, node->text);
@@ -459,7 +425,7 @@ static bool is_callable(struct AstNode* node) {
     return node->type == AST_TYPE_IDENTIFIER;
 }
 
-static int analyze_call_arguments(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, bool* error_occur, struct Signature* signature)
+static int analyze_call_arguments(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct Signature* signature)
 {
     size_t arguments_amount = 0;
     if (node != NULL) {
@@ -511,7 +477,7 @@ static int analyze_call_arguments(struct AstNode* node, Vector* errors, struct S
     return 0;
 }
 
-static int analyze_function_call(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, bool* error_occur, enum Type* type)
+static int analyze_function_call(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type)
 {
     assert(node->type == AST_TYPE_CALL_OR_INDEXER);
 
@@ -577,7 +543,7 @@ static int analyze_function_call(struct AstNode* node, Vector* errors, struct Se
 }
 
 
-static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, bool* error_occur, enum Type* type)
+static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type)
 {
     if (node->type == AST_TYPE_DEC) {
         *error_occur = false;
@@ -590,7 +556,7 @@ static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticA
         *type = TYPE_STRING;
     } else if (node->type == AST_TYPE_IDENTIFIER) {
         int err = analyze_variable_like_rvalue(node, errors, ctx, error_occur, type);
-        if (err) {
+        if (err != 0) {
             return err;
         }
     } else if (node->type == AST_TYPE_PLUS || node->type == AST_TYPE_MINUS || node->type == AST_TYPE_MUL || node->type == AST_TYPE_DIV) {
@@ -620,7 +586,7 @@ static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticA
     return 0;
 }
 
-static int analyze_assigmnet(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int analyze_assigmnet(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* left = *pointer;
@@ -668,7 +634,7 @@ static int analyze_assigmnet(struct AstNode* node, Vector* errors, struct Semant
 }
 
 
-static int analyze_cycle_or_if(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx, const size_t index)
+static int analyze_cycle_or_if(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, const size_t index)
 {
     struct AstNode** pointer = vector_get(&node->children, index);
     struct AstNode* expr_node = *pointer;
@@ -703,7 +669,7 @@ static int analyze_cycle_or_if(struct AstNode* node, Vector* errors, struct Sema
     return 0;
 }
 
-static int analyze_do_cycle(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int analyze_do_cycle(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
     ctx->cycle_counter++;
     int res = analyze_cycle_or_if(node, errors, ctx, 2);
@@ -711,7 +677,7 @@ static int analyze_do_cycle(struct AstNode* node, Vector* errors, struct Semanti
     return res;
 }
 
-static int analyze_while_cycle(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int analyze_while_cycle(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
    ctx->cycle_counter++;
     int res = analyze_cycle_or_if(node, errors, ctx, 0);
@@ -719,12 +685,12 @@ static int analyze_while_cycle(struct AstNode* node, Vector* errors, struct Sema
     return res;
 }
 
-static int analyze_if(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int analyze_if(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
     return analyze_cycle_or_if(node, errors, ctx, 0);
 }
 
-static int analyze_break(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int analyze_break(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
     if (ctx->cycle_counter > 0) {
         return 0;
@@ -737,7 +703,7 @@ static int analyze_break(struct AstNode* node, Vector* errors, struct SemanticAn
     return vector_push(errors, &error);
 }
 
-static int analyze_statement(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int analyze_statement(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
     if (node->type == AST_TYPE_ASSIGMENT) {
        return analyze_assigmnet(node, errors, ctx);
@@ -755,7 +721,7 @@ static int analyze_statement(struct AstNode* node, Vector* errors, struct Semant
     assert (0);
 }
 
-static int analyze_statement_list(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int analyze_statement_list(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
     // List can not exist
     if (node == NULL) {
@@ -775,26 +741,168 @@ static int analyze_statement_list(struct AstNode* node, Vector* errors, struct S
     return 0;
 }
 
-int semantic_analysis(struct AstNode* node, Vector* errors, struct SemanticAnalysisContext* ctx)
+static int semantic_signature_analysis(struct Signature* signature, Vector* errors, struct SemanticContext* ctx)
+{
+    assert(signature->ast->type == AST_TYPE_FUNC_SIGNATURE);
+    struct AstNode **pointer;
+    pointer = vector_get(&signature->ast->children, 1);
+    struct AstNode* arg_def_list_node = *pointer;
+    int err = analyze_signature_arguments(arg_def_list_node, errors, ctx);
+    if (err != 0) {
+        return err;
+    }
+
+    CString function_name;
+    err = cstring_init(&function_name, signature->name);
+    if (err != 0) {
+        return err;
+    }
+
+    cstring_free(&function_name);
+    return 0;
+}
+
+static int semantic_function_analysis(struct Function* function, struct AstNode* node, Vector* errors, struct Program* program)
 {   
+    assert(node->type == AST_TYPE_FUNC_DEF);
+
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* signature_node = *pointer;
 
-    if (node->type == AST_TYPE_FUNC_DEF) {
-        int err = analyze_signature(signature_node, errors, ctx);
+    struct SemanticContext* ctx = malloc(sizeof(struct SemanticContext));
+    if (ctx == NULL) {
+        return -1;
+    }
+
+    int err = semantic_analysis_context_init(ctx, program);
+    if (err != 0) {
+        free(ctx);
+        return err;
+    }
+
+
+    err = semantic_signature_analysis(&function->signature, errors, ctx);
+    if (err != 0) {
+        semantic_analysis_context_free(ctx);
+        return err;
+    }
+
+    pointer = vector_get(&node->children, 1);
+    struct AstNode* statement_list = *pointer;
+
+
+    err = analyze_statement_list(statement_list, errors, ctx);
+    if (err != 0) {
+        semantic_analysis_context_free(ctx);
+        return err;       
+    }
+
+    function->semantic_context = ctx;
+    
+    return 0;
+}
+
+static int handle_signature(struct Program* program, struct Signature* signature)
+{
+    Vector errors;
+    const ObjectInfo error_info = {
+        .size = sizeof(struct Error),
+        .copy = NULL,
+        .destructor = NULL,
+    };
+    int err = vector_init(&errors, error_info);
+    if (err != 0) {
+        return err;
+    }
+
+    struct SemanticContext ctx;
+    err = semantic_analysis_context_init(&ctx, program);
+    if (err != 0) {
+        vector_free(&errors);
+        return err;
+    }
+
+
+    err = semantic_signature_analysis(signature, &errors, &ctx);
+    if (err != 0) {
+        semantic_analysis_context_free(&ctx);
+        vector_free(&errors);
+        return err;
+    }
+
+    if (errors.size != 0) {
+        for (size_t j = 0; j < errors.size; j++) {
+            struct Error* error = vector_get(&errors, j);
+            printf("%s\n", error_to_str(error));
+        }
+    }
+
+    vector_free(&errors);
+    semantic_analysis_context_free(&ctx);
+
+    return 0;
+}
+
+static int handle_function(struct Program* program, struct Function* function)
+{
+    Vector errors;
+    const ObjectInfo error_info = {
+        .size = sizeof(struct Error),
+        .copy = NULL,
+        .destructor = NULL,
+    };
+    int err = vector_init(&errors, error_info);
+    if (err != 0) {
+        return err;
+    }
+
+    err = semantic_function_analysis(function, function->ast, &errors, program);
+    if (err != 0) {
+        vector_free(&errors);
+        return err;
+    }
+
+    if (errors.size != 0) {
+        for (size_t j = 0; j < errors.size; j++) {
+            struct Error* error = vector_get(&errors, j);
+            printf("%s\n", error_to_str(error));
+        }
+    }
+
+    vector_free(&errors);
+    return 0;
+}
+
+int program_semantic_analysis(struct Program* program)
+{
+
+    for (size_t i = 0; i < program->signatures_ptr.capacity; i++) {
+        if (program->signatures_ptr.buffer[i].key == NULL) {
+            continue;
+        }
+
+        struct Signature** pointer = program->signatures_ptr.buffer[i].value;
+        struct Signature* signature = *pointer;
+
+        int err = handle_signature(program, signature);
         if (err != 0) {
             return err;
         }
+    }
 
-        pointer = vector_get(&node->children, 1);
-        struct AstNode* statement_list = *pointer;
+    for (size_t i = 0; i < program->functions_ptr.capacity; i++) {
+        if (program->functions_ptr.buffer[i].key == NULL) {
+            continue;
+        }
 
-        err = analyze_statement_list(statement_list, errors, ctx);
+        struct Function** pointer = program->functions_ptr.buffer[i].value;
+        struct Function* function = *pointer;
+
+        int err = handle_function(program, function);
         if (err != 0) {
             return err;
         }
-        return 0;
-    } 
+    }
 
-    return analyze_signature(node, errors, ctx);
+    return 0;
 }

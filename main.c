@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <malloc.h>
 
@@ -5,6 +6,7 @@
 #include "backend/common/function.h"
 #include "backend/common/signature.h"
 #include "backend/error/error.h"
+#include "backend/program.h"
 #include "backend/semantic_analysis/semantic_analysis.h"
 #include "backend/semantic_analysis/semantic_analysis_context.h"
 #include "colc/cstring.h"
@@ -55,13 +57,124 @@ static int draw_ast_graph(struct AstNode* ast, const char* file_name)
     return 0;
 }
 
-static int handle_function(struct Function* function, struct AstNode* node, struct Signature *signature)
-{
-    int err = function_init(function, node, signature);
+static int handle_file(CString* file_name, const bool print_ast, const bool print_log)
+{   
+    FILE* input_file = fopen(file_name->buffer, "r");
+    if (input_file == NULL) {
+        printf("Error while opening file: %s\n", file_name->buffer);
+        return -1;
+    }
+
+    struct AstNode* root = parse(input_file);
+    fclose(input_file);
+    if (root == NULL) {
+        return -2;
+    }
+
+    if (print_ast == true) {
+        int err = draw_ast_graph(root, file_name->buffer);
+        if (err != 0) {
+            ast_node_destructor(&root);
+            return err;
+        }
+    }
+
+    struct AstNode** source_item_nodes = vector_get(&root->children, 0);
+    if (*source_item_nodes == NULL) {
+        ast_node_destructor(&root);
+        return 0;
+    }
+
+    struct Program program;
+    int err = program_init(&program);
     if (err != 0) {
+        ast_node_destructor(&root);
         return err;
     }
 
+    for (size_t j = 0; j < (*source_item_nodes)->children.size; j++) {
+        struct AstNode** pointer = vector_get(&(*source_item_nodes)->children, j);
+        struct AstNode* function_node = *pointer;
+
+        if (function_node->type == AST_TYPE_FUNC_SIGNATURE) {
+            struct Signature* signature = malloc(sizeof(struct Signature));
+            if (signature == NULL) {
+                program_free(&program);
+                ast_node_destructor(&root);
+                return -1;
+            }
+
+            int err = signature_init(signature, function_node);
+            if (err) {
+                free(signature);
+                program_free(&program);
+                ast_node_destructor(&root);
+            }
+
+            CString signature_name;
+            err = cstring_init(&signature_name, signature->name);
+            if (err != 0) {
+                signature_ptr_free(signature);
+                program_free(&program);
+                ast_node_destructor(&root);
+                return err;
+            }
+            
+            err = map_insert(&program.signatures_ptr, &signature_name, &signature);
+            if (err != 0) {
+                signature_ptr_free(signature);
+                program_free(&program);
+                ast_node_destructor(&root);
+            }
+
+            cstring_free(&signature_name);
+            continue;
+        }
+        
+        struct Function* function = malloc(sizeof(struct Function));
+        if (function == NULL) {
+            program_free(&program);
+            ast_node_destructor(&root);
+            return -1;
+        }
+
+        int err = function_init(function, function_node);
+        if (err != 0) {
+            program_free(&program);
+            function_free(function);
+            ast_node_destructor(&root);
+            return err;
+        }
+
+        CString function_name;
+        err = cstring_init(&function_name, function->signature.name);
+        if (err != 0) {
+            program_free(&program);
+            cstring_free(&function_name);
+            ast_node_destructor(&root);
+            return err;
+        }
+
+        err = map_insert(&program.functions_ptr, &function_name, &function);
+        if (err != 0) {
+            program_free(&program);
+            cstring_free(&function_name);
+            ast_node_destructor(&root);
+            return err;
+        }
+
+        cstring_free(&function_name);
+    }
+
+    err = program_semantic_analysis(&program);
+    if (err != 0) {
+        program_free(&program);
+        ast_node_destructor(&root);
+        return err;
+    }
+
+    program_free(&program);
+    ast_node_destructor(&root);
     return 0;
 }
 
@@ -72,113 +185,10 @@ static int handle_files(struct UserInput* user_input)
 
     for (size_t i = 0; i < user_input->input_files.size; i++) {
         CString* file_name = vector_get(&user_input->input_files, i);
-        FILE* input_file = fopen(file_name->buffer, "r");
-        if (input_file == NULL) {
-            printf("Error while opening file: %s\n", file_name->buffer);
-            return -1;
-        }
-
-        struct AstNode* root = parse(input_file);
-        fclose(input_file);
-        if (root == NULL) {
-            return -2;
-        }
-
-        if (draw_ast_tree) {
-            int err = draw_ast_graph(root, file_name->buffer);
-            if (err != 0) {
-                ast_node_destructor(&root);
-                return err;
-            }
-        }
-
-        struct AstNode** source_item_nodes = vector_get(&root->children, 0);
-        if (*source_item_nodes == NULL) {
-            ast_node_destructor(&root);
-            return 0;
-        }
-
-
-        Map signatures;
-        const ObjectInfo key_info = {
-            .size = sizeof(CString),
-            .copy = cstring_copy,
-            .destructor = cstring_free,
-        };
-        const ObjectInfo value_info = {
-            .size = sizeof(struct Signature*),
-            .copy = NULL,
-            .destructor = signature_ptr_free,
-        };
-        int err = map_init(&signatures, cstring_hash, cstring_comp, key_info, value_info);
+        int err = handle_file(file_name, draw_ast_tree, user_input->print_log);
         if (err != 0) {
-            ast_node_destructor(&root);
             return err;
         }
-
-        for (size_t j = 0; j < (*source_item_nodes)->children.size; j++) {
-            struct AstNode** function_node = vector_get(&(*source_item_nodes)->children, j);
-
-            Vector errors;
-            const ObjectInfo object_info = {
-                .size = sizeof(struct Error),
-                .copy = NULL,
-                .destructor = NULL,
-            };
-            int err = vector_init(&errors, object_info);
-            if (err != 0) {
-                ast_node_destructor(&root);
-                return err;
-            }
-
-            struct SemanticAnalysisContext ctx;
-            err = semantic_analysis_context_init(&ctx, &signatures);
-            if (err != 0) {
-                map_free(&signatures);
-                vector_free(&errors);
-                ast_node_destructor(&root);
-                return err;
-            }
-            
-            err = semantic_analysis(*function_node, &errors, &ctx);
-            if (err != 0) {
-                map_free(&signatures);
-                semantic_analysis_context_free(&ctx);
-                vector_free(&errors);
-                ast_node_destructor(&root);
-                return err;
-            }
-
-            if (user_input->print_log == true) {
-                printf("File %s\n", file_name->buffer);
-                puts("Semantic analysis completed");
-            }
-            if (errors.size == 0) {
-
-                if (user_input->print_log == true) {
-                    puts("No semantic errors deteceted");
-                }
-
-
-                /*struct Function function;
-                handle_function(&function, *function_node);
-                function_free(&function);*/
-            } else {
-                if (user_input->print_log == true) {
-                    puts("Semantic errors:");
-                }
-                for (size_t k = 0; k < errors.size; k++) {
-                    struct Error* pointer = vector_get(&errors, k);
-                    puts(error_to_str(pointer));
-                }
-            }
-            
-            semantic_analysis_context_free(&ctx);
-            vector_free(&errors);
-        }
-
-        map_free(&signatures);
-        ast_node_destructor(&root);
     }
     
     return 0;

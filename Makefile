@@ -1,3 +1,5 @@
+APP_NAME=clake
+
 CFLAGS+=\
 	-g
 
@@ -23,10 +25,10 @@ LIBS+=\
     -lbackend
 
 build:
-	gcc $(CFLAGS) $(INCLUDE) $(LDPATH) main.c $(LIBS) -o main
+	gcc $(CFLAGS) $(INCLUDE) $(LDPATH) main.c $(LIBS) -o $(APP_NAME)
 
 clean:
-	rm -f main
+	rm -f $(APP_NAME)
 
 rebuild: clean build
 
