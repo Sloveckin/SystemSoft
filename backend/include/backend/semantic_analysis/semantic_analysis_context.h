@@ -6,11 +6,13 @@
 #include "backend/program.h"
 #include "colc/cstring.h"
 #include "colc/map.h"
+#include "colc/vector.h"
 
 struct SemanticContext {
     struct Program *program;
     Map arguments;
     Map variables;
+    Vector types;
     int cycle_counter;
 };
 

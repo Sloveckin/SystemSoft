@@ -19,8 +19,7 @@ void yyerror(struct AstNode*, char*);
 
 %destructor { 
     if ($$) {
-        vector_free(&$$->children);
-        free($$);
+        ast_node_destructor(&$$);
     }
 } <node>
 
@@ -114,7 +113,6 @@ void yyerror(struct AstNode*, char*);
 %%
 
 source: source_item_list    {
-                                ast_node_init(root, AST_TYPE_ROOT);
                                 vector_push(&root->children, &$1);
                             }
 ;

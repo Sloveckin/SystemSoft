@@ -216,10 +216,10 @@ static int analyze_arg_def(struct AstNode* node, Vector* errors, struct Semantic
 
 static int analyze_signature_arguments(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
-    /*if (node == NULL) {
+    if (node == NULL) {
         return 0;
     }
-    assert(node->type == AST_TYPE_ARG_DEF_LIST);
+    /*assert(node->type == AST_TYPE_ARG_DEF_LIST);
 
     for (size_t i = 0; i < node->children.size; i++) {
         struct AstNode** pointer = vector_get(&node->children, i);
@@ -369,7 +369,6 @@ static int analyze_variable_creation(struct AstNode* node, Vector* errors, struc
     }
 
     if (error_occur == true) {
-        free(type);
         return 0;
     }
 
@@ -378,7 +377,6 @@ static int analyze_variable_creation(struct AstNode* node, Vector* errors, struc
 
     err = analyze_identifier_list(identifier_list_node, errors, ctx, type);
     if (err != 0) {
-        free(type);
         return err;
     }
 
@@ -511,6 +509,7 @@ static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct
         *error_occur = true;
         return 0;
     }
+    expr_info->can_be_compute_in_compile_time = left_info.can_be_compute_in_compile_time && right_info.can_be_compute_in_compile_time;
 
     if (is_boolean_operation == false) {
         if (left_info.type->kind > right_info.type->kind) {
@@ -522,7 +521,6 @@ static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct
         expr_info->type->kind = TYPE_KIND_BOOL;
     }
 
-    expr_info->can_be_compute_in_compile_time = left_info.can_be_compute_in_compile_time && right_info.can_be_compute_in_compile_time;
 
     return 0;
 }
@@ -605,8 +603,10 @@ static int analyze_call_arguments(struct AstNode* node, Vector* errors, struct S
             error_init(&error, ERROR_TYPE_INVALID_TYPE, data);
 
             err = vector_push(errors, &error);
+
             return err;
         }
+
     }
     
     return 0;
@@ -683,13 +683,33 @@ static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticC
 {
     if (node->type == AST_TYPE_DEC) {
         *error_occur = false;
+        expr_info->type = malloc(sizeof(struct Type));
+        if (expr_info->type == NULL) {
+            return -1;
+        }
         expr_info->type->kind = TYPE_KIND_INT;
+        expr_info->can_be_compute_in_compile_time = true;
+
+        return vector_push(&ctx->types, &expr_info->type);
     } else if (node->type == AST_TYPE_BOOL) {
         *error_occur = false;
-       expr_info->type->kind = TYPE_KIND_BOOL;
+        expr_info->type = malloc(sizeof(struct Type));
+        if (expr_info->type == NULL) {
+            return -1;
+        }
+        expr_info->type->kind = TYPE_KIND_BOOL;
+
+        return vector_push(&ctx->types, &expr_info->type);
     } else if (node->type == AST_TYPE_STR) {
         *error_occur = false;
+        expr_info->type = malloc(sizeof(struct Type));
+        if (expr_info->type == NULL) {
+            return -1;
+        }
         expr_info->type->kind = TYPE_KIND_STRING;
+        expr_info->can_be_compute_in_compile_time = true;
+
+        return vector_push(&ctx->types, &expr_info->type);
     } else if (node->type == AST_TYPE_IDENTIFIER) {
         int err = analyze_variable_like_rvalue(node, errors, ctx, error_occur, expr_info);
         if (err != 0) {
@@ -765,7 +785,7 @@ static int analyze_assigmnet(struct AstNode* node, Vector* errors, struct Semant
             return err;
         }
     }
-    
+
     return 0;
 }
 
@@ -1040,4 +1060,3 @@ int program_semantic_analysis(struct Program* program)
 
     return 0;
 }
-

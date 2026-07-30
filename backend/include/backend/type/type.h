@@ -39,4 +39,8 @@ bool type_is_comparable(const struct Type* type);
 
 struct Type* copy_type(const struct Type* type);
 
+int type_copy_by_ptr(void* dst, const void* src);
+
+void type_ptr_des(void* type);
+
 #endif

@@ -5,6 +5,7 @@
 #include "backend/common/signature.h"
 #include "backend/program.h"
 #include "backend/common/variable.h"
+#include "backend/type/type.h"
 #include "colc/map.h"
 #include "colc/object_info.h"
 
@@ -27,6 +28,16 @@ int semantic_analysis_context_init(struct SemanticContext* ctx, struct Program* 
     }
     
     err = map_init(&ctx->variables, cstring_hash, cstring_comp, key_info, value_info);
+    if (err != 0) {
+        return err;
+    }
+
+    const ObjectInfo type_ptr_info = {
+        .size = sizeof(struct Type*),
+        .copy = NULL,
+        .destructor = type_ptr_des,
+    };
+    err = vector_init(&ctx->types, type_ptr_info);
     if (err != 0) {
         return err;
     }
@@ -60,6 +71,7 @@ void semantic_analysis_context_free(struct SemanticContext* ctx)
 {
     map_free(&ctx->arguments);
     map_free(&ctx->variables);
+    vector_free(&ctx->types);
     //free(ctx);
 }
 
