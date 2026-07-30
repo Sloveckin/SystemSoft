@@ -1,11 +1,13 @@
 #include "backend/semantic_analysis/semantic_analysis.h"
 
+#include <errno.h>
 #include <endian.h>
-#include <math.h>
+#include <error.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <assert.h>
 #include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
 #include <threads.h>
 
@@ -36,23 +38,91 @@ static char* get_text(struct AstNode* node)
     return text;
 }
 
-static enum Type get_type(struct AstNode* node)
+static struct Type* get_type(struct AstNode* node, Vector* errors, bool* error_occur, int* error);
+
+// TODO: rewrite this shit
+static struct Type* init_array_type(struct AstNode* node, Vector* errors, bool* error_occur, int* error)
 {
-    if (node->type == AST_TYPE_INT_TYPE) {
-        return TYPE_INT;
-    } else if (node->type == AST_TYPE_UINT_TYPE) {
-        return TYPE_UINT;
-    } else if (node->type == AST_TYPE_BOOL_TYPE) {
-        return TYPE_BOOL;
-    } else if (node->type == AST_TYPE_LONG_TYPE) {
-        return TYPE_LONG;
-    } else if (node->type == AST_TYPE_ULONG_TYPE) {
-        return TYPE_ULONG;
-    } else if (node->type == AST_TYPE_STRING_TYPE) {
-        return TYPE_ULONG;
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* node_type = *pointer;
+
+    struct Type* element_type = get_type(node_type, errors, error_occur, error);
+    if (*error != 0) {
+        return NULL;
     }
 
-    assert(0);
+    if (*error_occur == true) {
+        *error = 0;
+        return NULL;
+    }
+
+    pointer = vector_get(&node->children, 1);
+    struct AstNode* node_length = *pointer;
+
+    char* hlp_pointer;
+
+    unsigned long length = strtoul(node_length->text, &hlp_pointer, 10);
+    if (errno == ERANGE || *hlp_pointer != 0) {
+        struct Error error_info;
+        union ErrorData data;
+        strcpy(data.text, node_length->text);
+        error_init(&error_info, ERROR_TYPE_NOT_UNSIGNED_NUMBER, data);
+
+        int err = vector_push(errors, &error_info);
+        if (err != 0) {
+            *error = err;
+            return NULL;
+        }
+        
+        return 0;
+    }
+
+    struct ArrayType* array_type = malloc(sizeof(struct ArrayType));
+    if (array_type == NULL) {
+        *error = -1;
+        return NULL;
+    }
+
+    array_type->base.kind = TYPE_KIND_ARRAY;
+    array_type->element_type = element_type;
+    array_type->length = length;
+
+    return (struct Type*)array_type;
+}
+
+static struct Type* init_basic_type(enum TypeKind type_kind, int *error)
+{
+    struct Type* type = malloc(sizeof(struct Type));
+    if (type == NULL) {
+        *error = -1;
+        return NULL;
+    }
+    type->kind = type_kind;
+    
+    return type;
+}
+
+static struct Type* get_type(struct AstNode* node, Vector* errors, bool* error_occur, int* error)
+{
+    if (node->type == AST_TYPE_INT_TYPE) {
+        return init_basic_type(TYPE_KIND_INT, error);
+    } else if (node->type == AST_TYPE_UINT_TYPE) {
+        return init_basic_type(TYPE_KIND_UINT, error);
+    } else if (node->type == AST_TYPE_BOOL_TYPE) {
+        return init_basic_type(TYPE_KIND_BOOL, error);
+    } else if (node->type == AST_TYPE_LONG_TYPE) {
+        return init_basic_type(TYPE_KIND_BOOL, error);
+    } else if (node->type == AST_TYPE_ULONG_TYPE) {
+        return init_basic_type(TYPE_KIND_ULONG, error);
+    } else if (node->type == AST_TYPE_STRING_TYPE) {
+        return init_basic_type(TYPE_KIND_ULONG, error);
+    } else if (node->type == AST_TYPE_ARRAY) {
+        return init_array_type(node, errors, error_occur, error);
+    } else {
+        assert (0);
+    }
+
+    return 0;
 }
 
 static int check_variable_exist_by_name(CString* key, Map* map, Vector* errors, struct SemanticContext* ctx)
@@ -89,13 +159,23 @@ static int analyze_arg_def(struct AstNode* node, Vector* errors, struct Semantic
 
     pointer = vector_get(&node->children, 1);
     struct AstNode* type_node = *pointer;
-    const enum Type type = get_type(type_node);
+
+    int err = 0;
+    bool error_occur = false;
+    struct Type* type = get_type(type_node, errors, &error_occur, &err);
+    if (err != 0) {
+        return err;
+    }
+
+    if (error_occur == true) {
+        return 0;
+    }
 
     struct Variable variable;
     variable_init(&variable, variable_name, type);
 
     CString key;
-    int err = cstring_init(&key, variable_name);
+    err = cstring_init(&key, variable_name);
     if (err != 0) {
         variable_free(&variable);
         return err;
@@ -110,13 +190,33 @@ static int analyze_arg_def(struct AstNode* node, Vector* errors, struct Semantic
 
     err = map_insert(&ctx->arguments, &key, &variable);
     cstring_free(&key);
+    // Here there problem
     variable_free(&variable);
     return err;
 }
 
+/*static int analyze_signature_arg(struct Variable* variable, Vector* errors, struct SemanticContext* ctx)
+{
+    CString key;
+    int err = cstring_init(&key, variable->name);
+    if (err != 0) {
+        return err;
+    }
+
+    err = check_variable_exist_by_name(&key, &ctx->arguments, errors, ctx);
+    if (err != 0) {
+        cstring_free(&key);
+        return err;
+    }
+
+    err = map_insert(&ctx->arguments, &key, variable);
+    cstring_free(&key);
+    return err;
+}*/
+
 static int analyze_signature_arguments(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
-    if (node == NULL) {
+    /*if (node == NULL) {
         return 0;
     }
     assert(node->type == AST_TYPE_ARG_DEF_LIST);
@@ -130,17 +230,27 @@ static int analyze_signature_arguments(struct AstNode* node, Vector* errors, str
         }
     }
     
+    return 0;*/
+
+    for (size_t i = 0; i < node->children.size; i++) {
+        struct AstNode** pointer = vector_get(&node->children, i);
+        int err = analyze_arg_def(*pointer, errors, ctx);
+        if (err != 0) {
+            return err;
+        }
+    }
     return 0;
 }
 
 
 
-static int check_is_variable(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* lvalue_type)
+static struct Type* check_is_variable(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, int *error)
 {
     CString variable_name;
     int err = cstring_init(&variable_name, node->text);
     if (err != 0) {
-        return err;
+        *error = err;
+        return NULL;
     }
 
     *error_occur = check_variable_not_exist_by_name(&variable_name, &ctx->arguments, errors, ctx);
@@ -148,52 +258,57 @@ static int check_is_variable(struct AstNode* node, Vector* errors, struct Semant
     // Mean that find varaible
     if (*error_occur == false) {
         struct Variable* variable = map_get(&ctx->arguments, &variable_name);
-        *lvalue_type = variable->type;
         cstring_free(&variable_name);
-        return 0;
+        return variable->type;
     }
 
     *error_occur = check_variable_not_exist_by_name(&variable_name, &ctx->variables, errors, ctx);
 
     if (*error_occur == false) {
         struct Variable* variable = map_get(&ctx->variables, &variable_name);
-        *lvalue_type = variable->type;
         cstring_free(&variable_name);
-        return 0;
+        return variable->type;
     }
 
-    struct Error error;
+    struct Error error_info;
     union ErrorData data;
     strcpy(data.text, node->text);
-    error_init(&error, ERROR_TYPE_VARIABLE_NOT_EXISTS, data);
+    error_init(&error_info, ERROR_TYPE_VARIABLE_NOT_EXISTS, data);
 
     err = vector_push(errors, &error);
     if (err != 0) {
+        *error = err;
         cstring_free(&variable_name);
-        return err;
+        return NULL;
     }
 
     cstring_free(&variable_name);
     return 0;
 }
 
-static int is_lvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool *error_occur, enum Type *lvalue_type)
+static struct Type* is_lvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool *error_occur, int* error)
 {
     if (node->type == AST_TYPE_IDENTIFIER) {
-        return check_is_variable(node, errors, ctx, error_occur, lvalue_type);
+        return check_is_variable(node, errors, ctx, error_occur, error);
     }
+
     *error_occur = true;
-    struct Error error;
+    struct Error error_info;
     union ErrorData data;
     strcpy(data.text, node->text);
-    error_init(&error, ERROR_TYPE_NOT_LVALUE, data);
+    error_init(&error_info, ERROR_TYPE_NOT_LVALUE, data);
     
 
     int err = vector_push(errors, &error);
-    return err;
+    if (err != 0) {
+        *error = err;
+        return NULL;
+    }
+
+    return NULL;
 }
 
-static int analyze_identifier_list(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, const enum Type type)
+static int analyze_identifier_list(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, struct Type* type)
 {
     for (size_t i = 0; i < node->children.size; i++) {
 
@@ -245,28 +360,43 @@ static int analyze_variable_creation(struct AstNode* node, Vector* errors, struc
     struct AstNode** pointer = vector_get(&node->children, 1);
     struct AstNode* type_node = *pointer;
 
-    const enum Type type = get_type(type_node);
+    bool error_occur = false;
 
-    pointer = vector_get(&node->children, 0);
-    struct AstNode* identifier_list_node = *pointer;
-
-    int err = analyze_identifier_list(identifier_list_node, errors, ctx, type);
+    int err = 0;
+    struct Type* type = get_type(type_node, errors, &error_occur, &err);
     if (err != 0) {
         return err;
     }
 
+    if (error_occur == true) {
+        free(type);
+        return 0;
+    }
+
+    pointer = vector_get(&node->children, 0);
+    struct AstNode* identifier_list_node = *pointer;
+
+    err = analyze_identifier_list(identifier_list_node, errors, ctx, type);
+    if (err != 0) {
+        free(type);
+        return err;
+    }
+
+    //free(type);
     return 0;
 }
 
 
-static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type);
+static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info);
 
-static int analyze_left_and_right(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* left_type, enum Type* right_type)
+static int analyze_left_and_right(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* left_expr_info, struct ExpressionInfo* right_expr_info)
 {
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* left = *pointer;
 
-    int err = analyze_rvalue(left, errors, ctx, error_occur, left_type);
+    
+
+    int err = analyze_rvalue(left, errors, ctx, error_occur, left_expr_info);
     if (err) {
         return err;
     }
@@ -278,7 +408,7 @@ static int analyze_left_and_right(struct AstNode* node, Vector* errors, struct S
     pointer = vector_get(&node->children, 1);
     struct AstNode* right = *pointer;
 
-    err = analyze_rvalue(right, errors, ctx, error_occur, right_type);
+    err = analyze_rvalue(right, errors, ctx, error_occur, right_expr_info);
     if (err) {
         return err;
     }
@@ -288,12 +418,12 @@ static int analyze_left_and_right(struct AstNode* node, Vector* errors, struct S
     }
     
 
-    if (types_suitable(*left_type, *right_type) == false) {
+    if (types_suitable(left_expr_info->type, right_expr_info->type) == false) {
         struct Error error;
         union ErrorData data = {
             .types = {
-                .first_type = *left_type,
-                .second_type = *right_type,
+                .first_type = left_expr_info->type->kind,
+                .second_type = right_expr_info->type->kind,
             }
         };
         error_init(&error, ERROR_TYPE_INVALID_TYPE, data);
@@ -311,11 +441,11 @@ static int analyze_left_and_right(struct AstNode* node, Vector* errors, struct S
     return 0;
 }
 
-static int analyze_binary_comparing(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type)
+static int analyze_binary_comparing(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info)
 {
-    enum Type left_type;
-    enum Type right_type;
-    int err = analyze_left_and_right(node, errors, ctx, error_occur, &left_type, &right_type);
+    struct ExpressionInfo left_info;
+    struct ExpressionInfo right_info;
+    int err = analyze_left_and_right(node, errors, ctx, error_occur, &left_info, &right_info);
     if (err != 0) {
         return 0;
     }
@@ -325,10 +455,10 @@ static int analyze_binary_comparing(struct AstNode* node, Vector* errors, struct
     } 
 
     // No reason to check right type, because types are suitable
-    if (type_is_comparable(left_type) == false) {
+    if (type_is_comparable(left_info.type) == false) {
         struct Error error;
         union ErrorData data = {
-            .type = left_type,
+            .type = left_info.type,
         };
         error_init(&error, ERROR_TYPE_TYPE_NOT_SUPPORT_ORDER, data);
         err = vector_push(errors, &error);
@@ -339,15 +469,17 @@ static int analyze_binary_comparing(struct AstNode* node, Vector* errors, struct
         return 0;
     }
 
-    *type = TYPE_BOOL;
+    expr_info->type = left_info.type;
+    expr_info->can_be_compute_in_compile_time = left_info.can_be_compute_in_compile_time && right_info.can_be_compute_in_compile_time;
+
     return 0;
 }
 
-static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type, const bool is_boolean_operation)
+static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info, const bool is_boolean_operation)
 {
-    enum Type left_type;
-    enum Type right_type;
-    int err = analyze_left_and_right(node, errors, ctx, error_occur, &left_type, &right_type);
+    struct ExpressionInfo left_info;
+    struct ExpressionInfo right_info;
+    int err = analyze_left_and_right(node, errors, ctx, error_occur, &left_info, &right_info);
     if (err != 0) {
         return 0;
     }
@@ -357,11 +489,11 @@ static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct
     } 
 
     // No reason to check right type, because types are suitable
-    if (is_boolean_operation == true && type_support_boolean_operations(left_type) == false
-        || is_boolean_operation == false && type_support_arithmetic_operations(left_type) == false) {
+    if (is_boolean_operation == true && type_support_boolean_operations(left_info.type) == false
+        || is_boolean_operation == false && type_support_arithmetic_operations(right_info.type) == false) {
         struct Error error;
         union ErrorData data = {
-            .type = *type,
+            .type = left_info.type,
         };
         enum ErrorType error_type;
         if (is_boolean_operation) {
@@ -381,19 +513,21 @@ static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct
     }
 
     if (is_boolean_operation == false) {
-        if (right_type > left_type) {
-            *type = right_type;
+        if (left_info.type->kind > right_info.type->kind) {
+            expr_info->type = left_info.type;
         } else {
-            *type = left_type;
+            expr_info->type = right_info.type;
         }
     } else {
-        *type = TYPE_BOOL;
+        expr_info->type->kind = TYPE_KIND_BOOL;
     }
+
+    expr_info->can_be_compute_in_compile_time = left_info.can_be_compute_in_compile_time && right_info.can_be_compute_in_compile_time;
 
     return 0;
 }
 
-static int analyze_variable_like_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type)
+static int analyze_variable_like_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info)
 {
     CString name;
     int err = cstring_init(&name, node->text);
@@ -415,7 +549,8 @@ static int analyze_variable_like_rvalue(struct AstNode* node, Vector* errors, st
     }
 
     *error_occur = false;
-    *type = variable->type;
+    expr_info->can_be_compute_in_compile_time = false;
+    expr_info->type = variable->type;
 
     cstring_free(&name);
     return 0;
@@ -449,8 +584,8 @@ static int analyze_call_arguments(struct AstNode* node, Vector* errors, struct S
         struct AstNode** pointer = vector_get(&node->children, i);
         struct AstNode* arg = *pointer;
 
-        enum Type arg_type;
-        int err = analyze_rvalue(arg, errors, ctx, error_occur, &arg_type);
+        struct ExpressionInfo info;
+        int err = analyze_rvalue(arg, errors, ctx, error_occur, &info);
         if (err) {
             return err;
         }
@@ -461,11 +596,11 @@ static int analyze_call_arguments(struct AstNode* node, Vector* errors, struct S
 
         struct Variable* signature_argument = vector_get(&signature->arguments, i);
 
-        if (types_suitable(arg_type, signature_argument->type) == false) {
+        if (types_suitable(info.type, signature_argument->type) == false) {
             struct Error error;
             union ErrorData data = {
-                .types.first_type = arg_type,
-                .types.second_type = signature_argument->type,
+                .types.first_type = info.type->kind,
+                .types.second_type = signature_argument->type->kind,
             };
             error_init(&error, ERROR_TYPE_INVALID_TYPE, data);
 
@@ -477,7 +612,7 @@ static int analyze_call_arguments(struct AstNode* node, Vector* errors, struct S
     return 0;
 }
 
-static int analyze_function_call(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type)
+static int analyze_function_call(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info)
 {
     assert(node->type == AST_TYPE_CALL_OR_INDEXER);
 
@@ -512,7 +647,7 @@ static int analyze_function_call(struct AstNode* node, Vector* errors, struct Se
 
     struct Variable* variable = get_variable_by_name(ctx, &variable_name);
     if (variable != NULL) {
-        *type = variable->type;
+        expr_info->type = variable->type;
         cstring_free(&variable_name);
         return 0;
     }
@@ -525,7 +660,8 @@ static int analyze_function_call(struct AstNode* node, Vector* errors, struct Se
             return 0;
         }
 
-        *type = signature->return_type;
+        expr_info->type = signature->return_type;
+        expr_info->can_be_compute_in_compile_time = false;
         cstring_free(&variable_name);
         return 0;
     }
@@ -543,39 +679,39 @@ static int analyze_function_call(struct AstNode* node, Vector* errors, struct Se
 }
 
 
-static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, enum Type* type)
+static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info)
 {
     if (node->type == AST_TYPE_DEC) {
         *error_occur = false;
-        *type = TYPE_INT;
+        expr_info->type->kind = TYPE_KIND_INT;
     } else if (node->type == AST_TYPE_BOOL) {
         *error_occur = false;
-        *type = TYPE_BOOL;
+       expr_info->type->kind = TYPE_KIND_BOOL;
     } else if (node->type == AST_TYPE_STR) {
         *error_occur = false;
-        *type = TYPE_STRING;
+        expr_info->type->kind = TYPE_KIND_STRING;
     } else if (node->type == AST_TYPE_IDENTIFIER) {
-        int err = analyze_variable_like_rvalue(node, errors, ctx, error_occur, type);
+        int err = analyze_variable_like_rvalue(node, errors, ctx, error_occur, expr_info);
         if (err != 0) {
             return err;
         }
     } else if (node->type == AST_TYPE_PLUS || node->type == AST_TYPE_MINUS || node->type == AST_TYPE_MUL || node->type == AST_TYPE_DIV) {
-        int err = analyze_binary_operation(node, errors, ctx, error_occur, type, false);
+        int err = analyze_binary_operation(node, errors, ctx, error_occur, expr_info, false);
         if (err != 0) {
             return err;
         }
     } else if (node->type == AST_TYPE_OR || node->type == AST_TYPE_AND) {
-        int err = analyze_binary_operation(node, errors, ctx, error_occur, type, true);
+        int err = analyze_binary_operation(node, errors, ctx, error_occur, expr_info, true);
         if (err != 0) {
             return err;
         }
     } else if (node->type == AST_TYPE_MORE || node->type == AST_TYPE_LESS || node->type == AST_TYPE_EQ || node->type == AST_TYPE_NOT_EQ) {
-        int err = analyze_binary_comparing(node, errors, ctx, error_occur, type);
+        int err = analyze_binary_comparing(node, errors, ctx, error_occur, expr_info);
         if (err != 0) {
             return err;
         }
     } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
-        int err = analyze_function_call(node, errors, ctx, error_occur, type);
+        int err = analyze_function_call(node, errors, ctx, error_occur, expr_info);
         if (err != 0) {
             return err;
         }
@@ -591,8 +727,8 @@ static int analyze_assigmnet(struct AstNode* node, Vector* errors, struct Semant
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* left = *pointer;
     bool error_occur = false;
-    enum Type lvalue_type;
-    int err = is_lvalue(left, errors, ctx, &error_occur, &lvalue_type);
+    int err = 0;
+    struct Type *lvalue_type = is_lvalue(left, errors, ctx, &error_occur, &err);
     if (err != 0) {
         return err;
     }
@@ -604,8 +740,8 @@ static int analyze_assigmnet(struct AstNode* node, Vector* errors, struct Semant
     pointer = vector_get(&node->children, 1);
     struct AstNode* right = *pointer;
 
-    enum Type rvalue_type;
-    err = analyze_rvalue(right, errors, ctx, &error_occur, &rvalue_type);
+    struct ExpressionInfo right_info;
+    err = analyze_rvalue(right, errors, ctx, &error_occur, &right_info);
     if (err != 0) {
         return err;
     }
@@ -614,12 +750,12 @@ static int analyze_assigmnet(struct AstNode* node, Vector* errors, struct Semant
         return 0;
     }
 
-    if (types_suitable(lvalue_type, rvalue_type) == false) {
+    if (types_suitable(lvalue_type, right_info.type) == false) {
         struct Error invalid_type_error;
         union ErrorData data = {
             .types = {
-                .first_type = lvalue_type,
-                .second_type = rvalue_type,
+                .first_type = lvalue_type->kind,
+                .second_type = right_info.type->kind,
             },
         };
         error_init(&invalid_type_error, ERROR_TYPE_INVALID_TYPE, data);
@@ -634,14 +770,14 @@ static int analyze_assigmnet(struct AstNode* node, Vector* errors, struct Semant
 }
 
 
-static int analyze_cycle_or_if(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, const size_t index)
+static int analyze_cycle_or_if(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, size_t index)
 {
     struct AstNode** pointer = vector_get(&node->children, index);
     struct AstNode* expr_node = *pointer;
 
     bool error_occur = false;
-    enum Type rvalue_type;
-    int err = analyze_rvalue(expr_node, errors, ctx, &error_occur, &rvalue_type);
+    struct ExpressionInfo info;
+    int err = analyze_rvalue(expr_node, errors, ctx, &error_occur, &info);
     if (err != 0) {
         return err;
     }
@@ -650,12 +786,12 @@ static int analyze_cycle_or_if(struct AstNode* node, Vector* errors, struct Sema
         return 0;
     }
 
-    if (rvalue_type != TYPE_BOOL) {
+    if (info.type->kind != TYPE_KIND_BOOL) {
         struct Error invalid_type_error;
         union ErrorData data = {
             .types = {
-                .first_type = TYPE_BOOL,
-                .second_type = rvalue_type,
+                .first_type = TYPE_KIND_BOOL,
+                .second_type = info.type->kind,
             },
         };
         error_init(&invalid_type_error, ERROR_TYPE_INVALID_TYPE, data);
@@ -773,6 +909,7 @@ static int semantic_function_analysis(struct Function* function, struct AstNode*
     if (ctx == NULL) {
         return -1;
     }
+    function->semantic_context = ctx;
 
     int err = semantic_analysis_context_init(ctx, program);
     if (err != 0) {
@@ -797,8 +934,6 @@ static int semantic_function_analysis(struct Function* function, struct AstNode*
         return err;       
     }
 
-    function->semantic_context = ctx;
-    
     return 0;
 }
 
@@ -875,7 +1010,6 @@ static int handle_function(struct Program* program, struct Function* function)
 
 int program_semantic_analysis(struct Program* program)
 {
-
     for (size_t i = 0; i < program->signatures_ptr.capacity; i++) {
         if (program->signatures_ptr.buffer[i].key == NULL) {
             continue;
@@ -906,3 +1040,4 @@ int program_semantic_analysis(struct Program* program)
 
     return 0;
 }
+

@@ -55,4 +55,4 @@ int ast_node_init_with_text(struct AstNode* node, const enum AstNodeType type, c
     vector_init(&node->children, obj_info);
     
     return 0;
-}
+} 

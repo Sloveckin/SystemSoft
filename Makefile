@@ -1,7 +1,8 @@
 APP_NAME=clake
 
 CFLAGS+=\
-	-g
+	-g\
+
 
 INCLUDE+=\
     -Ifrontend/include\

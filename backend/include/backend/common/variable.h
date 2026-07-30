@@ -5,10 +5,10 @@
 
 struct Variable {
     char* name;
-    enum Type type;
+    struct Type* type;
 };
 
-void variable_init(struct Variable* variable, char* name, const enum Type type);
+void variable_init(struct Variable* variable, char* name, struct Type* type);
 
 void variable_free(struct Variable* variable);
 

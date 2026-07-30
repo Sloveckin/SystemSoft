@@ -22,15 +22,40 @@ static char* get_name(struct AstNode* node)
     return name;
 }
 
-static enum Type get_type(struct AstNode* node)
+static struct Type* init_basic_type(enum TypeKind type_kind, int *error)
+{
+    struct Type* type = malloc(sizeof(struct Type));
+    if (type == NULL) {
+        *error = -1;
+        return NULL;
+    }
+    type->kind = type_kind;
+    
+    return type;
+}
+
+static struct Type* get_type(struct AstNode* node, Vector* errors, bool* error_occur, int* error)
 {
     if (node->type == AST_TYPE_INT_TYPE) {
-        return TYPE_INT;
+        return init_basic_type(TYPE_KIND_INT, error);
+    } else if (node->type == AST_TYPE_UINT_TYPE) {
+        return init_basic_type(TYPE_KIND_UINT, error);
     } else if (node->type == AST_TYPE_BOOL_TYPE) {
-        return TYPE_BOOL;
+        return init_basic_type(TYPE_KIND_BOOL, error);
+    } else if (node->type == AST_TYPE_LONG_TYPE) {
+        return init_basic_type(TYPE_KIND_BOOL, error);
+    } else if (node->type == AST_TYPE_ULONG_TYPE) {
+        return init_basic_type(TYPE_KIND_ULONG, error);
+    } else if (node->type == AST_TYPE_STRING_TYPE) {
+        return init_basic_type(TYPE_KIND_ULONG, error);
+    } else if (node->type == AST_TYPE_ARRAY) {
+        //return init_array_type(node, errors, error_occur, error);
+        assert(0);
+    } else {
+        assert (0);
     }
 
-    assert(0);
+    return 0;
 }
 
 static int get_argument(struct AstNode* node, struct Variable* variable)
@@ -46,7 +71,7 @@ static int get_argument(struct AstNode* node, struct Variable* variable)
 
     struct AstNode** type_node = vector_get(&node->children, 1);
     assert(*type_node);
-    enum Type type = get_type(*type_node);
+    struct Type* type = get_type(*type_node, NULL, NULL, NULL);
 
     variable_init(variable, name, type);
 
@@ -109,9 +134,9 @@ int signature_init(struct Signature* signature, struct AstNode* node)
 
     struct AstNode** return_type_node = vector_get(&node->children, 2);
     if (*return_type_node == NULL) {
-        signature->return_type = TYPE_VOID;   
+        signature->return_type->kind = TYPE_KIND_VOID;   
     } else {
-        signature->return_type = get_type(*return_type_node);
+        signature->return_type = get_type(*return_type_node, NULL, NULL, NULL);
     }
     signature->name = name;
     signature->ast = node;
@@ -122,6 +147,7 @@ int signature_init(struct Signature* signature, struct AstNode* node)
 void signature_free(struct Signature* signature)
 {
     vector_free(&signature->arguments);
+    free(signature->return_type);
     free(signature->name);
 }
 

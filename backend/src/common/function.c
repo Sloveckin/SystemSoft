@@ -19,6 +19,7 @@ int function_init(struct Function* function, struct AstNode* node)
 
     function->ast = node;
     function->cfg = NULL;
+    function->semantic_context = NULL;
 
     return 0;
 }
@@ -27,16 +28,18 @@ void function_free(struct Function* function)
 {
     signature_free(&function->signature);
     semantic_analysis_context_free(function->semantic_context);
-    free(function->semantic_context);
-    if (function->cfg) {
+    if (function->semantic_context != NULL) {
+        free(function->semantic_context);
+    }
+    if (function->cfg != NULL) {
         control_graph_free(function->cfg);
     }
-    free(function);
 }
 
 void function_des(void* value)
 {
     struct Function** function = value;
     function_free(*function);
+    free(*function);
 }
 

@@ -1,17 +1,14 @@
-#include <math.h>
 #include <stdio.h>
 #include <malloc.h>
 
 #include "ast/ast_node.h"
 #include "backend/common/function.h"
 #include "backend/common/signature.h"
-#include "backend/error/error.h"
 #include "backend/program.h"
 #include "backend/semantic_analysis/semantic_analysis.h"
 #include "backend/semantic_analysis/semantic_analysis_context.h"
 #include "colc/cstring.h"
 #include "colc/map.h"
-#include "colc/object_info.h"
 #include "colc/vector.h"
 #include "parser/parser.h"
 #include "user_input.h"
@@ -57,7 +54,7 @@ static int draw_ast_graph(struct AstNode* ast, const char* file_name)
     return 0;
 }
 
-static int handle_file(CString* file_name, const bool print_ast, const bool print_log)
+static int handle_file(CString* file_name, bool print_ast, bool print_log)
 {   
     FILE* input_file = fopen(file_name->buffer, "r");
     if (input_file == NULL) {
@@ -91,7 +88,7 @@ static int handle_file(CString* file_name, const bool print_ast, const bool prin
         ast_node_destructor(&root);
         return err;
     }
-
+    
     for (size_t j = 0; j < (*source_item_nodes)->children.size; j++) {
         struct AstNode** pointer = vector_get(&(*source_item_nodes)->children, j);
         struct AstNode* function_node = *pointer;
@@ -165,6 +162,7 @@ static int handle_file(CString* file_name, const bool print_ast, const bool prin
 
         cstring_free(&function_name);
     }
+    
 
     err = program_semantic_analysis(&program);
     if (err != 0) {

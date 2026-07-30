@@ -17,15 +17,16 @@ enum ErrorType {
     ERROR_TYPE_FUNCTION_NOT_EXISTS,
     ERROR_TYPE_INVALID_AMOUNT_OF_ARGUMENTS,
     ERROR_TYPE_BREAK_OUTSIDE_OF_CYCLE,
+    ERROR_TYPE_NOT_UNSIGNED_NUMBER,
 };
 
 union ErrorData {
     char text[MAX_LENGTH_ERROR_MESSAGE];
     struct {
-        enum Type first_type;
-        enum Type second_type;
+        enum TypeKind first_type;
+        enum TypeKind second_type;
     } types;
-    enum Type type;
+    struct Type* type;
     struct {
         size_t expected;
         size_t provided;

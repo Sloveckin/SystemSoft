@@ -25,10 +25,10 @@ char* error_to_str(struct Error* error)
         const char* second_type_str = type_to_string[error->data.types.second_type];
         sprintf(error_message, "Invalid types. Expected %s, but was %s", first_type_str, second_type_str);
     } else if (error->type == ERROR_TYPE_TYPE_NOT_SUPPORT_ARITHMETIC_OPERATIONS) {
-        const char* type_str = type_to_string[error->data.type];
+        const char* type_str = type_to_string[error->data.type->kind];
         sprintf(error_message, "Type %s not supports arithmetic operations", type_str);
     } else if (error->type == ERROR_TYPE_TYPE_NOT_SUPPORT_BOOLEAN_OPERATIONS) {
-        const char* type_str = type_to_string[error->data.type];
+        const char* type_str = type_to_string[error->data.type->kind];
         sprintf(error_message, "Type %s not supports boolean operations", type_str);
     } else if (error->type == ERROR_TYPE_NOT_CALLABLE_OR_INDEXER) {
         sprintf(error_message, "Expression %s can't be called", error->data.text);
@@ -37,10 +37,12 @@ char* error_to_str(struct Error* error)
     } else if (error->type == ERROR_TYPE_INVALID_AMOUNT_OF_ARGUMENTS) {
         sprintf(error_message, "Invalid arguments amount. Expected %zu, but was %zu", error->data.argument_amount.expected, error->data.argument_amount.provided);
     } else if (error->type == ERROR_TYPE_TYPE_NOT_SUPPORT_ORDER) {
-        const char* type_str = type_to_string[error->data.type];
+        const char* type_str = type_to_string[error->data.type->kind];
         sprintf(error_message, "Type %s not support ordering", type_str);
     } else if (error->type == ERROR_TYPE_BREAK_OUTSIDE_OF_CYCLE) {
         sprintf(error_message, "Break outside of cycle");
+    } else if (error->type == ERROR_TYPE_NOT_UNSIGNED_NUMBER) {
+        sprintf(error_message, "Expression can't be convert to unsigned number");
     } else {
         assert(0);
     }

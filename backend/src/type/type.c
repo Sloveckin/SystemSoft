@@ -1,5 +1,7 @@
 #include "backend/type/type.h"
 
+#include <malloc.h>
+
 const char* type_to_string[] = {
     "void",
     "int",
@@ -10,34 +12,62 @@ const char* type_to_string[] = {
     "string",
 };
 
-bool types_suitable(const enum Type a, const enum Type b)
+bool types_suitable(const struct Type* a, const struct Type* b)
 {
-    if (a == b) {
+    if (a->kind == b->kind) {
         return true;
     }
 
-    if (a == TYPE_LONG && b == TYPE_INT) {
+    if (a->kind == TYPE_KIND_LONG && b->kind == TYPE_KIND_INT) {
         return true;
     }
 
-    if (a == TYPE_ULONG && b == TYPE_ULONG) {
+    if (a->kind == TYPE_KIND_ULONG && b->kind == TYPE_KIND_ULONG) {
         return true;
     }
 
     return false;
 }
 
-bool type_support_arithmetic_operations(const enum Type type)
+bool type_support_arithmetic_operations(const struct Type* type)
 {
-    return type == TYPE_INT || type == TYPE_UINT || type == TYPE_LONG || type == TYPE_ULONG;
+    const enum TypeKind kind = type->kind;
+    return kind == TYPE_KIND_INT || kind == TYPE_KIND_UINT || kind == TYPE_KIND_LONG || kind == TYPE_KIND_ULONG;
 }
 
-bool type_support_boolean_operations(const enum Type type)
+bool type_support_boolean_operations(const struct Type* type)
 {
-    return type == TYPE_BOOL;
+    return type->kind == TYPE_KIND_BOOL;
 }
 
-bool type_is_comparable(const enum Type type)
+bool type_is_comparable(const struct Type* type)
+{   
+    const enum TypeKind kind = type->kind;
+    return kind == TYPE_KIND_INT || kind == TYPE_KIND_UINT || kind == TYPE_KIND_LONG || kind == TYPE_KIND_ULONG;
+}
+
+struct Type* copy_type(const struct Type* type)
 {
-    return type == TYPE_INT || type == TYPE_UINT || type == TYPE_LONG || type == TYPE_ULONG;
+    struct Type* result;
+    if (type->kind == TYPE_KIND_ARRAY) {
+        struct ArrayType* type_array = (struct ArrayType*)type;
+        struct ArrayType* tmp = malloc(sizeof(struct ArrayType));
+        if (tmp == NULL) {
+            return NULL;
+        }
+
+        tmp->element_type = copy_type(type);
+        tmp->length = type_array->length;
+
+        result = (struct Type*)tmp;
+    } else {
+        result = malloc(sizeof(struct Type));
+        if (result == NULL) {
+            return NULL;
+        }
+    }
+
+    result->kind = type->kind;
+
+    return result;
 }
