@@ -13,7 +13,7 @@ void variable_init(struct Variable* variable, char* name, struct Type* type)
 void variable_free(struct Variable* variable)
 {
     free(variable->name);
-    free(variable->type);
+    //type_ptr_des(&variable->type);
 }
 
 int variable_copy(void* dst, const void* src)
@@ -21,7 +21,9 @@ int variable_copy(void* dst, const void* src)
     struct Variable* variable_dst = dst;
     const struct Variable* variable_src = src;
 
-    variable_dst->type = copy_type(variable_src->type);
+    //variable_dst->type = copy_type(variable_src->type);
+
+    variable_dst->type = variable_src->type;
 
     const size_t name_len = strlen(variable_src->name) + 1;
     variable_dst->name = malloc(name_len * sizeof(char));

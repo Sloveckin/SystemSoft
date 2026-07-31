@@ -56,7 +56,7 @@ struct Type* copy_type(const struct Type* type)
             return NULL;
         }
 
-        tmp->element_type = copy_type(type);
+        tmp->element_type = copy_type(type_array->element_type);
         tmp->length = type_array->length;
 
         result = (struct Type*)tmp;

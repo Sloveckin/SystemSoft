@@ -24,6 +24,7 @@
 #include "colc/map.h"
 #include "colc/vector.h"
 
+static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info);
 
 static char* get_text(struct AstNode* node)
 {
@@ -38,18 +39,25 @@ static char* get_text(struct AstNode* node)
     return text;
 }
 
-static struct Type* get_type(struct AstNode* node, Vector* errors, bool* error_occur, int* error);
+static struct Type* get_type(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, int* error, bool add_to_ctx);
+
 
 // TODO: rewrite this shit
-static struct Type* init_array_type(struct AstNode* node, Vector* errors, bool* error_occur, int* error)
+static struct Type* analyze_array_type(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, int* error)
 {
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* node_type = *pointer;
 
-    struct Type* element_type = get_type(node_type, errors, error_occur, error);
+    struct Type* element_type = get_type(node_type, errors, ctx,  error_occur, error, false);
     if (*error != 0) {
         return NULL;
     }
+
+    /*int err = vector_push(&ctx->types, &element_type);
+    if (err != 0) {
+        *error = err;
+        return NULL;
+    }*/
 
     if (*error_occur == true) {
         *error = 0;
@@ -59,22 +67,53 @@ static struct Type* init_array_type(struct AstNode* node, Vector* errors, bool* 
     pointer = vector_get(&node->children, 1);
     struct AstNode* node_length = *pointer;
 
-    char* hlp_pointer;
+    //char* hlp_pointer;
 
-    unsigned long length = strtoul(node_length->text, &hlp_pointer, 10);
-    if (errno == ERANGE || *hlp_pointer != 0) {
-        struct Error error_info;
-        union ErrorData data;
-        strcpy(data.text, node_length->text);
-        error_init(&error_info, ERROR_TYPE_NOT_UNSIGNED_NUMBER, data);
+    // unsigned long length = strtoul(node_length->text, &hlp_pointer, 10);
+    // if (errno == ERANGE || *hlp_pointer != 0) {
+    //     struct Error error_info;
+    //     union ErrorData data;
+    //     strcpy(data.text, node_length->text);
+    //     error_init(&error_info, ERROR_TYPE_NOT_UNSIGNED_NUMBER, data);
 
-        int err = vector_push(errors, &error_info);
-        if (err != 0) {
-            *error = err;
-            return NULL;
-        }
+    //     int err = vector_push(errors, &error_info);
+    //     if (err != 0) {
+    //         *error = err;
+    //         return NULL;
+    //     }
         
-        return 0;
+    //     return 0;
+    // }
+    struct ExpressionInfo expr_info;
+    int err = analyze_rvalue(node_length, errors, ctx, error_occur, &expr_info);
+    if (err) {
+        *error = err;
+        return NULL;
+    }
+
+    size_t length;
+    if (expr_info.is_constant == false || 
+        expr_info.is_constant == true && (expr_info.type->kind == TYPE_KIND_INT || expr_info.type->kind == TYPE_KIND_LONG) && expr_info.value.number <= 0) {
+        struct Error error_info;
+        union ErrorData error_data;
+        
+        *error_occur = true;
+        error_init(&error_info, ERROR_TYPE_NOT_UNSIGNED_NUMBER, error_data);
+        *error = vector_push(errors, &error_info);
+        return NULL;
+    } else {
+        if (expr_info.type->kind == TYPE_KIND_INT || expr_info.type->kind == TYPE_KIND_LONG) {
+            length = expr_info.value.number;
+        } else if (expr_info.type->kind == TYPE_KIND_UINT || expr_info.type->kind == TYPE_KIND_ULONG) {
+            length = expr_info.value.unumber;
+        } else {
+            assert(0);
+        }
+    }
+
+    if (*error_occur ==  true) {
+        *error = 0;
+        return NULL;
     }
 
     struct ArrayType* array_type = malloc(sizeof(struct ArrayType));
@@ -82,6 +121,8 @@ static struct Type* init_array_type(struct AstNode* node, Vector* errors, bool* 
         *error = -1;
         return NULL;
     }
+
+    *error = 0;
 
     array_type->base.kind = TYPE_KIND_ARRAY;
     array_type->element_type = element_type;
@@ -102,27 +143,36 @@ static struct Type* init_basic_type(enum TypeKind type_kind, int *error)
     return type;
 }
 
-static struct Type* get_type(struct AstNode* node, Vector* errors, bool* error_occur, int* error)
+static struct Type* get_type(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, int* error, bool add_to_ctx)
 {
+    struct Type* result;
     if (node->type == AST_TYPE_INT_TYPE) {
-        return init_basic_type(TYPE_KIND_INT, error);
+        result =  init_basic_type(TYPE_KIND_INT, error);
     } else if (node->type == AST_TYPE_UINT_TYPE) {
-        return init_basic_type(TYPE_KIND_UINT, error);
+        result = init_basic_type(TYPE_KIND_UINT, error);
     } else if (node->type == AST_TYPE_BOOL_TYPE) {
-        return init_basic_type(TYPE_KIND_BOOL, error);
+        result = init_basic_type(TYPE_KIND_BOOL, error);
     } else if (node->type == AST_TYPE_LONG_TYPE) {
-        return init_basic_type(TYPE_KIND_BOOL, error);
+        result = init_basic_type(TYPE_KIND_BOOL, error);
     } else if (node->type == AST_TYPE_ULONG_TYPE) {
-        return init_basic_type(TYPE_KIND_ULONG, error);
+        result = init_basic_type(TYPE_KIND_ULONG, error);
     } else if (node->type == AST_TYPE_STRING_TYPE) {
-        return init_basic_type(TYPE_KIND_ULONG, error);
+        result = init_basic_type(TYPE_KIND_ULONG, error);
     } else if (node->type == AST_TYPE_ARRAY) {
-        return init_array_type(node, errors, error_occur, error);
+        result = analyze_array_type(node, errors, ctx, error_occur, error);
     } else {
         assert (0);
     }
+    
+    if (add_to_ctx == true) {
+        int err = vector_push(&ctx->types, &result);
+        if (err != 0) {
+            *error = err;
+            return NULL;
+        }
+    }
 
-    return 0;
+    return result;
 }
 
 static int check_variable_exist_by_name(CString* key, Map* map, Vector* errors, struct SemanticContext* ctx)
@@ -162,7 +212,7 @@ static int analyze_arg_def(struct AstNode* node, Vector* errors, struct Semantic
 
     int err = 0;
     bool error_occur = false;
-    struct Type* type = get_type(type_node, errors, &error_occur, &err);
+    struct Type* type = get_type(type_node, errors, ctx, &error_occur, &err, true);
     if (err != 0) {
         return err;
     }
@@ -190,29 +240,9 @@ static int analyze_arg_def(struct AstNode* node, Vector* errors, struct Semantic
 
     err = map_insert(&ctx->arguments, &key, &variable);
     cstring_free(&key);
-    // Here there problem
     variable_free(&variable);
     return err;
 }
-
-/*static int analyze_signature_arg(struct Variable* variable, Vector* errors, struct SemanticContext* ctx)
-{
-    CString key;
-    int err = cstring_init(&key, variable->name);
-    if (err != 0) {
-        return err;
-    }
-
-    err = check_variable_exist_by_name(&key, &ctx->arguments, errors, ctx);
-    if (err != 0) {
-        cstring_free(&key);
-        return err;
-    }
-
-    err = map_insert(&ctx->arguments, &key, variable);
-    cstring_free(&key);
-    return err;
-}*/
 
 static int analyze_signature_arguments(struct AstNode* node, Vector* errors, struct SemanticContext* ctx)
 {
@@ -363,7 +393,7 @@ static int analyze_variable_creation(struct AstNode* node, Vector* errors, struc
     bool error_occur = false;
 
     int err = 0;
-    struct Type* type = get_type(type_node, errors, &error_occur, &err);
+    struct Type* type = get_type(type_node, errors, ctx, &error_occur, &err, true);
     if (err != 0) {
         return err;
     }
@@ -384,15 +414,10 @@ static int analyze_variable_creation(struct AstNode* node, Vector* errors, struc
     return 0;
 }
 
-
-static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info);
-
 static int analyze_left_and_right(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* left_expr_info, struct ExpressionInfo* right_expr_info)
 {
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* left = *pointer;
-
-    
 
     int err = analyze_rvalue(left, errors, ctx, error_occur, left_expr_info);
     if (err) {
@@ -415,7 +440,6 @@ static int analyze_left_and_right(struct AstNode* node, Vector* errors, struct S
         return 0;
     }
     
-
     if (types_suitable(left_expr_info->type, right_expr_info->type) == false) {
         struct Error error;
         union ErrorData data = {
@@ -468,7 +492,7 @@ static int analyze_binary_comparing(struct AstNode* node, Vector* errors, struct
     }
 
     expr_info->type = left_info.type;
-    expr_info->can_be_compute_in_compile_time = left_info.can_be_compute_in_compile_time && right_info.can_be_compute_in_compile_time;
+    expr_info->is_constant = left_info.is_constant && right_info.is_constant;
 
     return 0;
 }
@@ -509,7 +533,8 @@ static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct
         *error_occur = true;
         return 0;
     }
-    expr_info->can_be_compute_in_compile_time = left_info.can_be_compute_in_compile_time && right_info.can_be_compute_in_compile_time;
+    expr_info->is_constant = left_info.is_constant && right_info.is_constant;
+   
 
     if (is_boolean_operation == false) {
         if (left_info.type->kind > right_info.type->kind) {
@@ -521,6 +546,42 @@ static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct
         expr_info->type->kind = TYPE_KIND_BOOL;
     }
 
+    // Precomuting constant expressions
+    if (expr_info->is_constant == true) {
+        if (expr_info->type->kind == TYPE_KIND_INT || expr_info->type->kind == TYPE_KIND_LONG) {
+            const int64_t left_value = left_info.value.number;
+            const int64_t right_value = right_info.value.number;
+
+            if (node->type == AST_TYPE_PLUS) {
+                expr_info->value.number = left_value + right_value;
+            } else if (node->type == AST_TYPE_MINUS) {
+                expr_info->value.number = left_value - right_value;
+            } else if (node->type == AST_TYPE_MUL) {
+                expr_info->value.number = left_value * right_value;
+            } else if (node->type == AST_TYPE_DIV) {
+                expr_info->value.number = left_value / right_value;
+            } else {
+                assert(0);
+            }
+ 
+            expr_info->value.number = left_value + right_value;
+        } else if (expr_info->type->kind == TYPE_KIND_UINT || expr_info->type->kind == TYPE_KIND_ULONG) {
+            const int64_t left_value = left_info.value.number;
+            const int64_t right_value = right_info.value.number;
+            
+            if (node->type == AST_TYPE_PLUS) {
+                expr_info->value.unumber = left_value + right_value;
+            } else if (node->type == AST_TYPE_MINUS) {
+                expr_info->value.unumber = left_value - right_value;
+            } else if (node->type == AST_TYPE_MUL) {
+                expr_info->value.unumber = left_value * right_value;
+            } else if (node->type == AST_TYPE_DIV) {
+                expr_info->value.unumber = left_value / right_value;
+            } else {
+                assert(0);
+            }
+        }
+    }
 
     return 0;
 }
@@ -547,7 +608,7 @@ static int analyze_variable_like_rvalue(struct AstNode* node, Vector* errors, st
     }
 
     *error_occur = false;
-    expr_info->can_be_compute_in_compile_time = false;
+    expr_info->is_constant = false;
     expr_info->type = variable->type;
 
     cstring_free(&name);
@@ -564,7 +625,6 @@ static int analyze_call_arguments(struct AstNode* node, Vector* errors, struct S
     if (node != NULL) {
         arguments_amount = node->children.size;
     }
-
 
     if (signature->arguments.size != arguments_amount) {
         *error_occur = true;
@@ -661,7 +721,7 @@ static int analyze_function_call(struct AstNode* node, Vector* errors, struct Se
         }
 
         expr_info->type = signature->return_type;
-        expr_info->can_be_compute_in_compile_time = false;
+        expr_info->is_constant = false;
         cstring_free(&variable_name);
         return 0;
     }
@@ -688,7 +748,8 @@ static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticC
             return -1;
         }
         expr_info->type->kind = TYPE_KIND_INT;
-        expr_info->can_be_compute_in_compile_time = true;
+        expr_info->is_constant = true;
+        expr_info->value.number = atol(node->text);
 
         return vector_push(&ctx->types, &expr_info->type);
     } else if (node->type == AST_TYPE_BOOL) {
@@ -698,6 +759,12 @@ static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticC
             return -1;
         }
         expr_info->type->kind = TYPE_KIND_BOOL;
+        expr_info->is_constant = true;
+        if (strcmp(node->text, "true") == 0) {
+            expr_info->value.boolean = true;
+        } else {
+            expr_info->value.boolean = false;
+        }
 
         return vector_push(&ctx->types, &expr_info->type);
     } else if (node->type == AST_TYPE_STR) {
@@ -707,7 +774,7 @@ static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticC
             return -1;
         }
         expr_info->type->kind = TYPE_KIND_STRING;
-        expr_info->can_be_compute_in_compile_time = true;
+        expr_info->is_constant = true;
 
         return vector_push(&ctx->types, &expr_info->type);
     } else if (node->type == AST_TYPE_IDENTIFIER) {
@@ -735,6 +802,14 @@ static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticC
         if (err != 0) {
             return err;
         }
+    } else if (node->type == AST_TYPE_ARRAY) {
+        int err = 0;
+        struct Type* type = analyze_array_type(node, errors, ctx, error_occur, &err);
+        if (err != 0) {
+            return err;
+        }
+
+        return vector_push(&ctx->types, &type);
     } else {
         assert (0);
     }

@@ -72,6 +72,5 @@ void semantic_analysis_context_free(struct SemanticContext* ctx)
     map_free(&ctx->arguments);
     map_free(&ctx->variables);
     vector_free(&ctx->types);
-    //free(ctx);
 }
 
