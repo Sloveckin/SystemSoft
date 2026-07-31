@@ -704,6 +704,47 @@ static int analyze_function_call(struct AstNode* node, Vector* errors, struct Se
     return err;
 }
 
+static int analyze_unary(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info)
+{
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* value_node = *pointer;
+
+    struct ExpressionInfo value_info;
+    int err = analyze_rvalue(value_node, errors, ctx, error_occur, &value_info);
+    if (err != 0) {
+        return err;
+    }
+
+    if (*error_occur == true) {
+        return 0;
+    }
+
+    if (type_support_arithmetic_operations(value_info.type) == false) {
+        struct Error error;
+        union ErrorData error_data = {
+            .type = value_info.type
+        };
+        error_init(&error, ERROR_TYPE_TYPE_NOT_SUPPORT_ARITHMETIC_OPERATIONS, error_data);
+
+        return vector_push(errors, &error);
+    }
+
+    expr_info->is_constant = value_info.is_constant;
+    expr_info->type = value_info.type;
+
+    if (expr_info->is_constant == false) {
+        return 0;
+    }
+
+    if (node->type == AST_TYPE_UNARY_MINUS && (expr_info->type->kind == TYPE_KIND_INT || expr_info->type->kind == TYPE_KIND_LONG)) {
+        expr_info->value.number = -value_info.value.number;
+    } else {
+        assert(0);
+    }
+
+
+    return 0;
+}
 
 static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info)
 {
@@ -776,8 +817,13 @@ static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticC
         }
 
         return vector_push(&ctx->types, &type);
+    } else if (node->type == AST_TYPE_UNARY_MINUS || node->type == AST_TYPE_UNARY_PLUS) {
+        int err = analyze_unary(node, errors, ctx, error_occur, expr_info);
+        if (err != 0) {
+            return err;
+        }
     } else {
-        assert (0);
+        assert(0);
     }
 
     return 0;

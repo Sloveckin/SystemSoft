@@ -38,17 +38,19 @@ void yyerror(struct AstNode*, char*);
 %token <node> CHAR_TYPE
 %token <node> STRING_TYPE
 
-%token PLUS
-%token MINUS
-%token DIV
-%token MUL
-%token EQ
-%token NOT_EQ
-%token LESS
-%token MORE
-%token OR
-%token AND
+%left PLUS
+%left MINUS
+%left DIV
+%left MUL
+%left LESS
+%left MORE
+%left OR
+%left AND
+%right EQ
+%right NOT_EQ
 %token NOT
+
+
 %token ASSIGMENT
 %token AS
 
@@ -295,28 +297,28 @@ while: WHILE expr statement_list WEND   {
                                             $$ = node;
                                         }
 
-binary:  expr MUL     expr { 
+binary:  expr PLUS     expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_PLUS);
                                 vector_push(&node->children, &$1);
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr DIV    expr { 
+       | expr MINUS    expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_MINUS);
                                 vector_push(&node->children, &$1);
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr PLUS      expr { 
+       | expr MUL      expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_MUL);
                                 vector_push(&node->children, &$1);
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr MINUS      expr { 
+       | expr DIV      expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_DIV);
                                 vector_push(&node->children, &$1);
