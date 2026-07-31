@@ -48,16 +48,10 @@ static struct Type* analyze_array_type(struct AstNode* node, Vector* errors, str
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* node_type = *pointer;
 
-    struct Type* element_type = get_type(node_type, errors, ctx,  error_occur, error, false);
+    struct Type* element_type = get_type(node_type, errors, ctx,  error_occur, error, true);
     if (*error != 0) {
         return NULL;
     }
-
-    /*int err = vector_push(&ctx->types, &element_type);
-    if (err != 0) {
-        *error = err;
-        return NULL;
-    }*/
 
     if (*error_occur == true) {
         *error = 0;
@@ -67,23 +61,6 @@ static struct Type* analyze_array_type(struct AstNode* node, Vector* errors, str
     pointer = vector_get(&node->children, 1);
     struct AstNode* node_length = *pointer;
 
-    //char* hlp_pointer;
-
-    // unsigned long length = strtoul(node_length->text, &hlp_pointer, 10);
-    // if (errno == ERANGE || *hlp_pointer != 0) {
-    //     struct Error error_info;
-    //     union ErrorData data;
-    //     strcpy(data.text, node_length->text);
-    //     error_init(&error_info, ERROR_TYPE_NOT_UNSIGNED_NUMBER, data);
-
-    //     int err = vector_push(errors, &error_info);
-    //     if (err != 0) {
-    //         *error = err;
-    //         return NULL;
-    //     }
-        
-    //     return 0;
-    // }
     struct ExpressionInfo expr_info;
     int err = analyze_rvalue(node_length, errors, ctx, error_occur, &expr_info);
     if (err) {
@@ -162,6 +139,10 @@ static struct Type* get_type(struct AstNode* node, Vector* errors, struct Semant
         result = analyze_array_type(node, errors, ctx, error_occur, error);
     } else {
         assert (0);
+    }
+
+    if (result == NULL) {
+        return NULL;
     }
     
     if (add_to_ctx == true) {
@@ -249,18 +230,6 @@ static int analyze_signature_arguments(struct AstNode* node, Vector* errors, str
     if (node == NULL) {
         return 0;
     }
-    /*assert(node->type == AST_TYPE_ARG_DEF_LIST);
-
-    for (size_t i = 0; i < node->children.size; i++) {
-        struct AstNode** pointer = vector_get(&node->children, i);
-        struct AstNode* arg_def_node = *pointer;
-        int err = analyze_arg_def(arg_def_node, errors, ctx);
-        if (err != 0) {
-            return err;
-        }
-    }
-    
-    return 0;*/
 
     for (size_t i = 0; i < node->children.size; i++) {
         struct AstNode** pointer = vector_get(&node->children, i);
@@ -271,8 +240,6 @@ static int analyze_signature_arguments(struct AstNode* node, Vector* errors, str
     }
     return 0;
 }
-
-
 
 static struct Type* check_is_variable(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, int *error)
 {
@@ -564,7 +531,6 @@ static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct
                 assert(0);
             }
  
-            expr_info->value.number = left_value + right_value;
         } else if (expr_info->type->kind == TYPE_KIND_UINT || expr_info->type->kind == TYPE_KIND_ULONG) {
             const int64_t left_value = left_info.value.number;
             const int64_t right_value = right_info.value.number;

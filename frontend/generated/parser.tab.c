@@ -669,10 +669,10 @@ static const yytype_int8 yydefact[] =
        0,     0,    30,     0,     9,     0,    11,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,    66,    64,
        0,    17,     0,    65,     0,     9,     0,     0,     0,     0,
-      66,     0,    20,    49,    50,    52,    51,    53,    54,    56,
-      55,    57,    58,    62,     0,    67,    33,    34,    35,    36,
+      66,     0,    20,    51,    52,    50,    49,    53,    54,    56,
+      55,    58,    57,    62,     0,    67,    33,    34,    35,    36,
       37,    38,    39,    40,    28,    27,    24,    26,    25,     0,
-      19,    23,    45,    46,     0,    41,    29,    31,    49,    50,
+      19,    23,    45,    46,     0,    41,    29,    31,    51,    52,
       67,    48,    69,     0,     0,    18,    47,     9,     0,    42,
       68,     0,    43,     0,    32,    44
 };
@@ -2553,9 +2553,9 @@ yyreduce:
 #line 2554 "generated/parser.tab.c"
     break;
 
-  case 49: /* binary: expr PLUS expr  */
+  case 49: /* binary: expr MUL expr  */
 #line 298 "parser.y"
-                            { 
+                           { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_PLUS);
                                 vector_push(&node->children, &(yyvsp[-2].node));
@@ -2565,9 +2565,9 @@ yyreduce:
 #line 2566 "generated/parser.tab.c"
     break;
 
-  case 50: /* binary: expr MINUS expr  */
+  case 50: /* binary: expr DIV expr  */
 #line 305 "parser.y"
-                            { 
+                          { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_MINUS);
                                 vector_push(&node->children, &(yyvsp[-2].node));
@@ -2577,9 +2577,9 @@ yyreduce:
 #line 2578 "generated/parser.tab.c"
     break;
 
-  case 51: /* binary: expr MUL expr  */
+  case 51: /* binary: expr PLUS expr  */
 #line 312 "parser.y"
-                            { 
+                             { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_MUL);
                                 vector_push(&node->children, &(yyvsp[-2].node));
@@ -2589,9 +2589,9 @@ yyreduce:
 #line 2590 "generated/parser.tab.c"
     break;
 
-  case 52: /* binary: expr DIV expr  */
+  case 52: /* binary: expr MINUS expr  */
 #line 319 "parser.y"
-                            { 
+                              { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_DIV);
                                 vector_push(&node->children, &(yyvsp[-2].node));
@@ -2649,9 +2649,9 @@ yyreduce:
 #line 2650 "generated/parser.tab.c"
     break;
 
-  case 57: /* binary: expr OR expr  */
+  case 57: /* binary: expr AND expr  */
 #line 354 "parser.y"
-                            { 
+                             { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_OR);
                                 vector_push(&node->children, &(yyvsp[-2].node));
@@ -2661,9 +2661,9 @@ yyreduce:
 #line 2662 "generated/parser.tab.c"
     break;
 
-  case 58: /* binary: expr AND expr  */
+  case 58: /* binary: expr OR expr  */
 #line 361 "parser.y"
-                            { 
+                           { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_AND);
                                 vector_push(&node->children, &(yyvsp[-2].node));

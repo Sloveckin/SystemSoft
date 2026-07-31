@@ -42,7 +42,7 @@ char* error_to_str(struct Error* error)
     } else if (error->type == ERROR_TYPE_BREAK_OUTSIDE_OF_CYCLE) {
         sprintf(error_message, "Break outside of cycle");
     } else if (error->type == ERROR_TYPE_NOT_UNSIGNED_NUMBER) {
-        sprintf(error_message, "Expression can't be convert to unsigned number");
+        sprintf(error_message, "Expression can't be converted to unsigned number");
     } else {
         assert(0);
     }

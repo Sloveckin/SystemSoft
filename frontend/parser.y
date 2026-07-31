@@ -295,28 +295,28 @@ while: WHILE expr statement_list WEND   {
                                             $$ = node;
                                         }
 
-binary:  expr PLUS     expr { 
+binary:  expr MUL     expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_PLUS);
                                 vector_push(&node->children, &$1);
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr MINUS    expr { 
+       | expr DIV    expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_MINUS);
                                 vector_push(&node->children, &$1);
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr MUL      expr { 
+       | expr PLUS      expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_MUL);
                                 vector_push(&node->children, &$1);
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr DIV      expr { 
+       | expr MINUS      expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_DIV);
                                 vector_push(&node->children, &$1);
@@ -351,14 +351,14 @@ binary:  expr PLUS     expr {
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr OR       expr { 
+       | expr AND       expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_OR);
                                 vector_push(&node->children, &$1);
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr AND      expr { 
+       | expr OR      expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
                                 ast_node_init(node, AST_TYPE_AND);
                                 vector_push(&node->children, &$1);

@@ -77,10 +77,10 @@ void type_ptr_des(void* value)
     struct Type** t = value;
     struct Type* type = *t;
 
-    if (type->kind == TYPE_KIND_ARRAY) {
+    /*if (type->kind == TYPE_KIND_ARRAY) {
         struct ArrayType* array_type = (struct ArrayType*)type;
         type_ptr_des(&array_type->element_type);
-    }
+    }*/
 
     free(type);
 }
