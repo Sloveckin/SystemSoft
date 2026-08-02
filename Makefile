@@ -1,36 +1,62 @@
-APP_NAME=clake
+BINARY=clake
+BUILD=release
 
-CFLAGS+=\
-	-g\
+ifeq ($(BUILD),debug)
+	CFLAGS+=\
+		-g\
+		-fsanitize=address \
+		-fsanitize=pointer-compare \
+		-fsanitize=pointer-subtract \
+		-fsanitize=undefined \
+		-fsanitize-address-use-after-scope
+endif
 
+ifeq ($(BUILD),release)
+	CFLAGS+=\
+		-O3
+endif
 
 INCLUDE+=\
-    -Ifrontend/include\
-    -Icolc/include\
-    -Iuser-input/include\
-    -Idgml/include\
-    -Ibackend/include
+	-Ifrontend/include\
+	-Icolc/include\
+	-Iuser-input/include\
+	-Idgml/include\
+	-Ibackend/include
 
 LDPATH+=\
-    -Ldgml\
-    -Lfrontend\
-    -Luser-input\
-    -Lcolc\
-    -Lbackend
+	-Ldgml\
+	-Lfrontend\
+	-Luser-input\
+	-Lcolc\
+	-Lbackend
 
 LIBS+=\
-    -ldgml\
-    -lfrontend\
-    -luser_input\
-    -lcolc\
-    -lbackend
+	-ldgml\
+	-lfrontend\
+	-luser_input\
+	-lcolc\
+	-lbackend
 
-build:
-	gcc $(CFLAGS) $(INCLUDE) $(LDPATH) main.c $(LIBS) -o $(APP_NAME)
+OBJECTS+=\
+	main.o\
+
+all: library $(BINARY)
+
+library:
+	$(MAKE) -C frontend BUILD=$(BUILD)
+	$(MAKE) -C backend BUILD=$(BUILD)
+	$(MAKE) -C user-input BUILD=$(BUILD)
+	$(MAKE) -C dgml BUILD=$(BUILD)
+
+$(BINARY): $(OBJECTS)
+	gcc $(CFLAGS) -o $@ $^ $(LDPATH) $(LIBS)
+
+%.o:%.c
+	gcc -c $(INCLUDE) $(CFLAGS) -o $@ $^
 
 clean:
-	rm -f $(APP_NAME)
-
-rebuild: clean build
-
-.PHONY: rebuild
+	$(MAKE) -C frontend clean
+	$(MAKE) -C backend clean
+	$(MAKE) -C user-input clean
+	$(MAKE) -C dgml clean
+	rm -f $(BINARY) $(OBJECTS)

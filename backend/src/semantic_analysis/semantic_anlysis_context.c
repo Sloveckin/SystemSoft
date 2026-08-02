@@ -3,6 +3,7 @@
 #include <malloc.h>
 
 #include "backend/common/signature.h"
+#include "backend/common/function.h"
 #include "backend/program.h"
 #include "backend/common/variable.h"
 #include "backend/type/type.h"
@@ -61,10 +62,14 @@ struct Variable* get_variable_by_name(struct SemanticContext* ctx, CString* name
 struct Signature* get_signature_by_name(struct SemanticContext* ctx, CString* name)
 {
     struct Signature** pointer = map_get(&ctx->program->signatures_ptr, name);
-    if (pointer == NULL) {
+    if (pointer != NULL) {
+        return *pointer;
+    }
+    struct Function** function = map_get(&ctx->program->functions_ptr, name);
+    if (function == NULL) {
         return NULL;
     }
-    return *pointer;
+    return &(*function)->signature;
 }
 
 void semantic_analysis_context_free(struct SemanticContext* ctx)
@@ -73,4 +78,3 @@ void semantic_analysis_context_free(struct SemanticContext* ctx)
     map_free(&ctx->variables);
     vector_free(&ctx->types);
 }
-

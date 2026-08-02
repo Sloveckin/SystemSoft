@@ -13,7 +13,6 @@ void variable_init(struct Variable* variable, char* name, struct Type* type)
 void variable_free(struct Variable* variable)
 {
     free(variable->name);
-    //type_ptr_des(&variable->type);
 }
 
 int variable_copy(void* dst, const void* src)

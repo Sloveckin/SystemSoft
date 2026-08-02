@@ -2,24 +2,23 @@
 
 #include "backend/cfg/control_flow_graph_node.h"
 #include "backend/common/signature.h"
-#include "backend/semantic_analysis/semantic_analysis_context.h"
+#include "backend/program.h"
 
 #include <malloc.h>
 #include <assert.h>
 
-int function_init(struct Function* function, struct AstNode* node)
+int function_init(struct Function* function, struct Program* program, struct AstNode* node)
 {
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* signature_node = *pointer;
-
-    int err = signature_init(&function->signature, signature_node);
+    
+    int err = signature_init(&function->signature, signature_node, program);
     if (err != 0) {
         return err;
     }
 
     function->ast = node;
     function->cfg = NULL;
-    function->semantic_context = NULL;
 
     return 0;
 }
@@ -27,10 +26,6 @@ int function_init(struct Function* function, struct AstNode* node)
 void function_free(struct Function* function)
 {
     signature_free(&function->signature);
-    semantic_analysis_context_free(function->semantic_context);
-    if (function->semantic_context != NULL) {
-        free(function->semantic_context);
-    }
     if (function->cfg != NULL) {
         control_graph_free(function->cfg);
     }

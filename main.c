@@ -101,7 +101,7 @@ static int handle_file(CString* file_name, bool print_ast, bool print_log)
                 return -1;
             }
 
-            int err = signature_init(signature, function_node);
+            int err = signature_init(signature, function_node, &program);
             if (err) {
                 free(signature);
                 program_free(&program);
@@ -135,7 +135,7 @@ static int handle_file(CString* file_name, bool print_ast, bool print_log)
             return -1;
         }
 
-        int err = function_init(function, function_node);
+        int err = function_init(function, &program, function_node);
         if (err != 0) {
             program_free(&program);
             function_free(function);

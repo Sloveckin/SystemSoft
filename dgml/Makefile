@@ -1,5 +1,20 @@
-CFLAGS+=\
-  -g
+LIBRARY=libdgml.a
+BUILD=release
+
+ifeq ($(BUILD),debug)
+	CFLAGS+= \
+		-g \
+		-fsanitize=address \
+		-fsanitize=pointer-compare \
+		-fsanitize=pointer-subtract \
+		-fsanitize=undefined \
+		-fsanitize-address-use-after-scope
+endif
+
+ifeq ($(BUILD),release)
+	CFLAGS+= \
+		-O3
+endif
 
 INCLUDE+=\
 	-I../colc/include\
@@ -12,20 +27,28 @@ LPATH+=\
 LIBS+=\
   -lfrontend
 
-SRC+=\
-	src/from_ast.c
+OBJECTS+=\
+	src/from_ast.o
 
-OBJ+=\
-	from_ast.o
+all: $(LIBRARY)
 
-build:
-	gcc $(CFLAGS) $(INCLUDE) $(LPATH) $(SRC) $(LIBS) -c
-	ar rcs libdgml.a $(OBJ)
-	rm -f *.o
+$(LIBRARY): $(OBJECTS)
+	ar rcs $(LIBRARY) $(OBJECTS)
+
+%.o:%.c
+	gcc -c $(CFLAGS) $(INCLUDE) $(LPATH) -o $@ $^
 
 clean:
-	rm -rf *.o libdgml.a
+	rm -f $(LIBRARY) $(OBJECTS)
 
-rebulid: clean build
+#build:
+#	gcc $(CFLAGS) $(INCLUDE) $(LPATH) $(SRC) $(LIBS) -c
+#	ar rcs libdgml.a $(OBJ)
+#	rm -f *.o
 
-.PHONY:	clean build
+#clean:
+#	rm -rf *.o libdgml.a
+
+#rebulid: clean build
+
+#.PHONY:	clean build

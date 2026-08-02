@@ -6,6 +6,10 @@
 
 #include "backend/program.h"
 #include "backend/type/type.h"
+#include "colc/vector.h"
+#include "semantic_analysis_context.h"
+#include "ast/ast_node.h"
+#include "backend/common/function.h"
 
 struct ExpressionInfo {
     struct Type* type;
@@ -17,6 +21,9 @@ struct ExpressionInfo {
         bool boolean;
     } value;
 };
+struct Type* get_type(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, int* error, bool add_to_ctx);
+
+int semantic_function_analysis(struct Function* function, struct AstNode* node, Vector* errors, bool* error_occur, struct Program* program);
 
 int program_semantic_analysis(struct Program* program);
 

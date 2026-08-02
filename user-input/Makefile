@@ -1,6 +1,20 @@
-CFLAGS+=\
-  -g\
-	-c
+LIBRARY=libuser_input.a
+BUILD=release
+
+ifeq ($(BUILD),debug)
+	CFLAGS+=\
+		-g\
+		-fsanitize=address \
+		-fsanitize=pointer-compare \
+		-fsanitize=pointer-subtract \
+		-fsanitize=undefined \
+		-fsanitize-address-use-after-scope
+endif
+
+ifeq ($(BUILD),release)
+	CFLAGS+=\
+		-O3
+endif
 
 INCLUDE+=\
 	-Iinclude\
@@ -12,14 +26,32 @@ LDPATH+=\
 LIBS+=\
 	-lcolc
 
-build:
-	gcc $(CFLAGS) $(INCLUDE) $(LDPATH) $(LIBS) src/user_input.c
-	ar rcs libuser_input.a user_input.o
-	rm *.o
+OBJECTS+=\
+	src/user_input.o
+
+
+all: $(LIBRARY)
+
+$(LIBRARY): $(OBJECTS)
+	ar rcs $(LIBRARY) $(OBJECTS)
+
+%.o:%.c
+	gcc $(INCLUDE) -c $^ -o $@
 
 clean:
-	rm -f *.o *.a
+	rm -f $(OBJECTS) $(LIBRARY)
 
-rebuild: clean build
 
-.PHONY:	rebuild
+
+
+#build:
+#	gcc $(CFLAGS) $(INCLUDE) $(LDPATH) $(LIBS) src/user_input.c
+#	ar rcs libuser_input.a user_input.o
+#	rm *.o
+
+#clean:
+#	rm -f *.o *.a
+
+#rebuild: clean build
+
+#.PHONY:	rebuild
