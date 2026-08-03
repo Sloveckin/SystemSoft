@@ -58,15 +58,7 @@ $(LIBRARY): $(OBJECTS)
 	ar rcs $(LIBRARY) $(OBJECTS)
 
 %.o:%.c
-	gcc $(INCLUDE) -c $^ -o $@
+	gcc -c $(INCLUDE) $(CFLAGS) $^ -o $@
 
 clean:
 	rm -f $(OBJECTS) $(LIBRARY)
-
-#build:
-#	gcc $(CFLAGS) $(INCLUDE) $(SRC) $(LDPATH) $(LIBS) -c
-#	ar rcs libbackend.a $(OBJ)
-#	rm -rf *.o
-
-#clean:
-#	rm -f *.o *.a

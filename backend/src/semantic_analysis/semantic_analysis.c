@@ -217,7 +217,7 @@ static int analyze_arg_def(struct AstNode* node, struct Variable* variable, Vect
         return err;
     }
 
-    err = map_insert(&ctx->arguments, &key, &variable);
+    err = map_insert(&ctx->arguments, &key, variable);
     cstring_free(&key);
     return err;
 }
