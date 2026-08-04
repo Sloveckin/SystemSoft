@@ -1,8 +1,8 @@
-#include "backend/program.h"
+#include "language/program.h"
 
-#include "backend/common/function.h"
+#include "language/common/function.h"
 #include "colc/cstring.h"
-#include "backend/common/signature.h"
+#include "language/common/signature.h"
 
 int program_init(struct Program* program)
 {

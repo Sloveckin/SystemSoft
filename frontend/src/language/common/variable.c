@@ -1,5 +1,5 @@
-#include "backend/common/variable.h"
-#include "backend/type/type.h"
+#include "language/common/variable.h"
+#include "language/type/type.h"
 
 #include <malloc.h>
 #include <string.h>

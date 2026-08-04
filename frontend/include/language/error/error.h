@@ -1,7 +1,7 @@
 #ifndef BACKEND_ERROR_H
 #define BACKEND_ERROR_H
 
-#include "backend/type/type.h"
+#include "language/type/type.h"
 #include <stddef.h>
 #define MAX_LENGTH_ERROR_MESSAGE 512
 

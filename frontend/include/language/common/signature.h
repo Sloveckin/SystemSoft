@@ -3,7 +3,7 @@
 
 #include "../type/type.h"
 #include "ast/ast_node.h"
-#include "backend/semantic_analysis/semantic_analysis_context.h"
+#include "language/semantic_analysis/semantic_analysis_context.h"
 
 struct Signature {
     char* name;

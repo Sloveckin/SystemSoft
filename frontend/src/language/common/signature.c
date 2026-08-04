@@ -1,11 +1,11 @@
-#include "backend/common/signature.h"
+#include "language/common/signature.h"
 
 #include <malloc.h>
 #include <assert.h>
 
 #include "ast/ast_node_type.h"
 
-#include "backend/type/type.h"
+#include "language/type/type.h"
 #include "colc/vector.h"
 
 static char* get_name(struct AstNode* node)

@@ -2,11 +2,11 @@
 #include <malloc.h>
 
 #include "ast/ast_node.h"
-#include "backend/common/function.h"
-#include "backend/common/signature.h"
-#include "backend/program.h"
-#include "backend/semantic_analysis/semantic_analysis.h"
-#include "backend/semantic_analysis/semantic_analysis_context.h"
+#include "language/common/function.h"
+#include "language/common/signature.h"
+#include "language/program.h"
+#include "language/semantic_analysis/semantic_analysis.h"
+#include "language/semantic_analysis/semantic_analysis_context.h"
 #include "colc/cstring.h"
 #include "colc/map.h"
 #include "colc/vector.h"

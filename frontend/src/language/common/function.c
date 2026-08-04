@@ -1,8 +1,7 @@
-#include "backend/common/function.h"
+#include "language/common/function.h"
 
-#include "backend/cfg/control_flow_graph_node.h"
-#include "backend/common/signature.h"
-#include "backend/program.h"
+#include "language/common/signature.h"
+#include "language/program.h"
 
 #include <malloc.h>
 #include <assert.h>
@@ -26,9 +25,9 @@ int function_init(struct Function* function, struct Program* program, struct Ast
 void function_free(struct Function* function)
 {
     signature_free(&function->signature);
-    if (function->cfg != NULL) {
-        control_graph_free(function->cfg);
-    }
+    // if (function->cfg != NULL) {
+    //     control_graph_free(function->cfg);
+    // }
 }
 
 void function_des(void* value)

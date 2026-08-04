@@ -1,4 +1,4 @@
-#include "backend/semantic_analysis/semantic_analysis.h"
+#include "language/semantic_analysis/semantic_analysis.h"
 
 #include <endian.h>
 #include <error.h>
@@ -12,13 +12,13 @@
 
 #include "ast/ast_node.h"
 #include "ast/ast_node_type.h"
-#include "backend/common/function.h"
-#include "backend/common/signature.h"
-#include "backend/common/variable.h"
-#include "backend/error/error.h"
-#include "backend/program.h"
-#include "backend/semantic_analysis/semantic_analysis_context.h"
-#include "backend/type/type.h"
+#include "language/common/function.h"
+#include "language/common/signature.h"
+#include "language/common/variable.h"
+#include "language/error/error.h"
+#include "language/program.h"
+#include "language/semantic_analysis/semantic_analysis_context.h"
+#include "language/type/type.h"
 #include "colc/cstring.h"
 #include "colc/map.h"
 #include "colc/vector.h"

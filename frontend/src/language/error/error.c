@@ -1,5 +1,5 @@
-#include "backend/error/error.h"
-#include "backend/type/type.h"
+#include "language/error/error.h"
+#include "language/type/type.h"
 
 #include <malloc.h>
 #include <assert.h>

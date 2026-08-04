@@ -1,9 +1,8 @@
 #ifndef BACKEND_FUNCTION_H
 #define BACKEND_FUNCTION_H
 
-#include "../cfg/control_flow_graph_node.h"
-#include "backend/program.h"
-#include "backend/semantic_analysis/semantic_analysis_context.h"
+#include "language/program.h"
+#include "language/semantic_analysis/semantic_analysis_context.h"
 #include "signature.h"
 
 struct Function {

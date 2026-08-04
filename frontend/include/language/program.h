@@ -2,6 +2,7 @@
 #define PROGRAM_H
 
 #include "colc/map.h"
+
 struct Program {
     Map signatures_ptr;
     Map functions_ptr;

@@ -1,12 +1,12 @@
-#include "backend/semantic_analysis/semantic_analysis_context.h"
+#include "language/semantic_analysis/semantic_analysis_context.h"
 
 #include <malloc.h>
 
-#include "backend/common/signature.h"
-#include "backend/common/function.h"
-#include "backend/program.h"
-#include "backend/common/variable.h"
-#include "backend/type/type.h"
+#include "language/common/signature.h"
+#include "language/common/function.h"
+#include "language/program.h"
+#include "language/common/variable.h"
+#include "language/type/type.h"
 #include "colc/map.h"
 #include "colc/object_info.h"
 

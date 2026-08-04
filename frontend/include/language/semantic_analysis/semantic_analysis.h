@@ -4,12 +4,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "backend/program.h"
-#include "backend/type/type.h"
+#include "language/program.h"
+#include "language/type/type.h"
 #include "colc/vector.h"
 #include "semantic_analysis_context.h"
 #include "ast/ast_node.h"
-#include "backend/common/function.h"
+#include "language/common/function.h"
 
 struct ExpressionInfo {
     struct Type* type;

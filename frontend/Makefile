@@ -27,14 +27,24 @@ SRC+= \
 	src/parser/parser.c \
 	generated/parser.tab.c \
 	generated/lexer.yy.c \
+	src/language/semantic_analysis/semantic_analysis.c\
+	src/language/semantic_analysis/semantic_anlysis_context.c\
+	src/language/error/error.c\
+	src/language/type/type.c\
+	src/language/common/function.c\
+	src/language/common/signature.c\
+	src/language/common/variable.c\
+	src/language/program.c
 
-OBJECTS+= \
-	src/ast/ast_node_type.o \
-	src/ast/ast_node.o \
-	src/parser/parser.o \
-	generated/parser.tab.o \
-	generated/lexer.yy.o
 
+#OBJECTS+= \
+#	src/ast/ast_node_type.o \
+#	src/ast/ast_node.o \
+#	src/parser/parser.o \
+#	generated/parser.tab.o \
+#	generated/lexer.yy.o
+
+OBJECTS := $(SRC:.c=.o)
 
 all: $(LIBRARY)
 

@@ -1,7 +1,7 @@
 #ifndef VARIABLE_H
 #define VARIABLE_H
 
-#include "backend/type/type.h"
+#include "language/type/type.h"
 
 struct Variable {
     char* name;

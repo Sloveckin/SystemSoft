@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "backend/program.h"
+#include "language/program.h"
 #include "colc/cstring.h"
 #include "colc/map.h"
 #include "colc/vector.h"
