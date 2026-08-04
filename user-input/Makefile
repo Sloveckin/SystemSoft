@@ -36,7 +36,7 @@ $(LIBRARY): $(OBJECTS)
 	ar rcs $(LIBRARY) $(OBJECTS)
 
 %.o:%.c
-	gcc $(INCLUDE) -c $^ -o $@
+	gcc $(CFLAGS) $(INCLUDE) -c $^ -o $@
 
 clean:
 	rm -f $(OBJECTS) $(LIBRARY)

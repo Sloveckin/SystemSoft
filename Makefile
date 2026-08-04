@@ -2,8 +2,8 @@ BINARY=clake
 BUILD=release
 
 ifeq ($(BUILD),debug)
-	CFLAGS+=\
-		-g\
+	CFLAGS+= \
+		-g \
 		-fsanitize=address \
 		-fsanitize=pointer-compare \
 		-fsanitize=pointer-subtract \

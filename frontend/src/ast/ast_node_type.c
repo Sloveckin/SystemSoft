@@ -48,5 +48,6 @@ const char* ast_type_to_string[] = {
     "SOURCE_ITEM_LIST",
     "ARG_DEF_LIST",
     "IDENTIFIER_LIST",
-    "ARRAY"
+    "ARRAY",
+    "RETURN",
 };

@@ -40,15 +40,3 @@ $(LIBRARY): $(OBJECTS)
 
 clean:
 	rm -f $(LIBRARY) $(OBJECTS)
-
-#build:
-#	gcc $(CFLAGS) $(INCLUDE) $(LPATH) $(SRC) $(LIBS) -c
-#	ar rcs libdgml.a $(OBJ)
-#	rm -f *.o
-
-#clean:
-#	rm -rf *.o libdgml.a
-
-#rebulid: clean build
-
-#.PHONY:	clean build

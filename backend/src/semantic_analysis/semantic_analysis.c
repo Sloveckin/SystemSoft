@@ -371,7 +371,6 @@ static int analyze_variable_creation(struct AstNode* node, Vector* errors, bool*
     struct AstNode** pointer = vector_get(&node->children, 1);
     struct AstNode* type_node = *pointer;
 
-
     int err = 0;
     struct Type* type = get_type(type_node, errors, ctx, error_occur, &err, true);
     if (err != 0) {
@@ -390,7 +389,6 @@ static int analyze_variable_creation(struct AstNode* node, Vector* errors, bool*
         return err;
     }
 
-    //free(type);
     return 0;
 }
 
@@ -958,7 +956,27 @@ static int analyze_break(struct AstNode* node, Vector* errors, bool* error_occur
     return vector_push(errors, &error);
 }
 
-static int analyze_statement(struct AstNode* node, Vector* errors, bool *error_occur, struct SemanticContext* ctx)
+static int analyze_return(struct AstNode* node, Vector* errors, bool* error_occur, struct SemanticContext* ctx)
+{
+    assert(node->type == AST_TYPE_RETURN);
+
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* expression = *pointer;
+
+    struct ExpressionInfo info;
+    int err = analyze_rvalue(expression, errors, ctx, error_occur, &info);
+    if (err != 0) {
+        return err;
+    }
+
+    if (*error_occur == true) {
+        return 0;
+    }
+
+    return 0;
+}
+
+static int analyze_statement(struct AstNode* node, Vector* errors, bool* error_occur, struct SemanticContext* ctx)
 {
     if (node->type == AST_TYPE_ASSIGMENT) {
        return analyze_assigmnet(node, errors, error_occur, ctx);
@@ -972,6 +990,8 @@ static int analyze_statement(struct AstNode* node, Vector* errors, bool *error_o
         return analyze_if(node, errors, error_occur, ctx);
     } else if (node->type == AST_TYPE_BREAK) {
         return analyze_break(node, errors, error_occur, ctx);
+    } else if (node->type == AST_TYPE_RETURN) {
+        return analyze_return(node, errors, error_occur, ctx);
     }
     assert (0);
 }

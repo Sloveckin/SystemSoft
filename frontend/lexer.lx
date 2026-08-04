@@ -25,6 +25,12 @@ and { return AND; }
 dim { return DIM; }
 function { return FUNCTION; }
 
+return  { 
+            yylval.node = malloc(sizeof(struct AstNode));
+            ast_node_init(yylval.node, AST_TYPE_RETURN);
+            return RETURN;
+        }
+
 break   { 
             yylval.node = malloc(sizeof(struct AstNode)); 
             ast_node_init(yylval.node, AST_TYPE_BREAK); 

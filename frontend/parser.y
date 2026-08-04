@@ -78,6 +78,7 @@ void yyerror(struct AstNode*, char*);
 %token <node> BREAK
 %token <node> WHILE
 %token <node> UNTIL
+%token <node> RETURN
 
 %type <node> literal
 %type <node> expr
@@ -111,6 +112,7 @@ void yyerror(struct AstNode*, char*);
 %type <node> source_item
 %type <node> source_item_list
 %type <node> array
+%type <node> return
 
 %%
 
@@ -125,6 +127,7 @@ statement:  var { $$ = $1; }
         |   do { $$ = $1; }
         |   break { $$ = $1; }
         |   expression { $$ = $1; }
+        |   return { $$ = $1;}
 ;                                         
 
 statement_list: %empty { $$ = NULL; }
@@ -251,6 +254,12 @@ builtin:   INT_TYPE { $$ = $1; }
         |  CHAR_TYPE { $$ = $1; }
         |  STRING_TYPE { $$ = $1; }
 ;
+
+return: RETURN expression 
+                            { 
+                                vector_push(&$1->children, &$2);
+                                $$ = $1;
+                            }
 
 else_block_opt: { $$ = NULL; }
             |   else_block { $$ = $1; }

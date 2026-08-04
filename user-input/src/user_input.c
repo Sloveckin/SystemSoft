@@ -77,5 +77,9 @@ void user_input_free(struct UserInput* user_input)
 int flag_compare(const void* a, const void* b)
 {
     // I don't know how to fix it..
-    return *(enum Flag*) a == *(enum Flag*) b;
+    if (*(enum Flag*) a == *(enum Flag*) b) {
+        return 0;
+    }
+    
+    return 1;
 }

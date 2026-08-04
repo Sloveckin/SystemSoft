@@ -50,6 +50,7 @@ enum AstNodeType {
     AST_TYPE_ARG_DEF_LIST = 45,
     AST_TYPE_IDENTIFIER_LIST = 46,
     AST_TYPE_ARRAY = 47,
+    AST_TYPE_RETURN = 48,
 };
 
 extern const char* ast_type_to_string[];
