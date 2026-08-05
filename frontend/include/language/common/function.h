@@ -7,8 +7,7 @@
 
 struct Function {
     struct Signature signature;
-    //struct SemanticContext* semantic_context;
-    struct AstNode *ast;
+    struct AstNode* ast;
     struct CfgNode* cfg;
 };
 

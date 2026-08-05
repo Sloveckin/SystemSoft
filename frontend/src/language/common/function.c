@@ -2,6 +2,7 @@
 
 #include "language/common/signature.h"
 #include "language/program.h"
+#include "middleend/cfg_node.h"
 
 #include <malloc.h>
 #include <assert.h>
@@ -25,9 +26,10 @@ int function_init(struct Function* function, struct Program* program, struct Ast
 void function_free(struct Function* function)
 {
     signature_free(&function->signature);
-    // if (function->cfg != NULL) {
-    //     control_graph_free(function->cfg);
-    // }
+    if (function->cfg != NULL) {
+        cfg_node_free(function->cfg);
+        free(function->cfg);
+    }
 }
 
 void function_des(void* value)

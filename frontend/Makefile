@@ -19,7 +19,8 @@ endif
 INCLUDE+= \
 	-Igenerated \
 	-Iinclude \
-	-I../colc/include
+	-I../middleend/include \
+	-I../colc/include \
 
 SRC+= \
 	src/ast/ast_node_type.c \
@@ -35,14 +36,6 @@ SRC+= \
 	src/language/common/signature.c\
 	src/language/common/variable.c\
 	src/language/program.c
-
-
-#OBJECTS+= \
-#	src/ast/ast_node_type.o \
-#	src/ast/ast_node.o \
-#	src/parser/parser.o \
-#	generated/parser.tab.o \
-#	generated/lexer.yy.o
 
 OBJECTS := $(SRC:.c=.o)
 

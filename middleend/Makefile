@@ -1,4 +1,4 @@
-LIBRARY=libdgml.a
+LIBRARY=libmiddleend.so
 BUILD=release
 
 ifeq ($(BUILD),debug)
@@ -17,25 +17,26 @@ ifeq ($(BUILD),release)
 endif
 
 INCLUDE+= \
-	-I../colc/include \
+	-Iinclude \
 	-I../frontend/include \
-	-I../middleend/include \
-	-Iinclude
+	-I../colc/include
 
-LPATH+=\
-  -L../front-end\
+SRC+= \
+	src/cfg.c \
+	src/cfg_node.c \
+	src/optree.c \
 
-OBJECTS+=\
-	src/from_ast.o \
-	src/from_cfg.o \
+OBJECTS := $(SRC:.c=.o)
 
 all: $(LIBRARY)
 
 $(LIBRARY): $(OBJECTS)
-	ar rcs $(LIBRARY) $(OBJECTS)
+	ar crs $@ $^
 
 %.o:%.c
-	gcc -c $(CFLAGS) $(INCLUDE) $(LPATH) -o $@ $^
+	gcc -c $(CFLAGS) $(INCLUDE) -o $@ $<
 
-clean:
+clean: 
 	rm -f $(LIBRARY) $(OBJECTS)
+
+.PHONY: all clean

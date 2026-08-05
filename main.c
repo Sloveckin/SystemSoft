@@ -10,6 +10,7 @@
 #include "colc/cstring.h"
 #include "colc/map.h"
 #include "colc/vector.h"
+#include "middleend/include/middleend/cfg.h"
 #include "parser/parser.h"
 #include "user_input.h"
 #include "dgml/from_ast.h"
@@ -171,6 +172,13 @@ static int handle_file(CString* file_name, bool print_ast, bool print_log)
         return err;
     }
 
+    err = program_control_flow_graph(&program);
+    if (err != 0) {
+        program_free(&program);
+        ast_node_destructor(&root);
+        return err;
+    }
+    
     program_free(&program);
     ast_node_destructor(&root);
     return 0;
