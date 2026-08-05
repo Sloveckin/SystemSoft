@@ -32,6 +32,7 @@ int user_input_init(struct UserInput* user_input)
     }
 
     user_input->print_log = false;
+    user_input->write_cfg = false;
 
     return 0;
 }
@@ -47,6 +48,8 @@ int read_user_input(struct UserInput* user_input, int argc, char** argv)
             }
         } else if (strcmp(argv[i], "--print-log") == 0) {
             user_input->print_log = true;
+        } else if (strcmp(argv[i], "--control-flow-graph") == 0) {
+            user_input->write_cfg = true;
         } else if (strncmp(argv[i], "-", 1) == 0) {
             printf("Unknown flag: %s\n", argv[i]);
             return -1;

@@ -12,6 +12,7 @@ struct UserInput {
     Vector input_files;
     Vector flags;
     bool print_log;
+    bool write_cfg;
 };
 
 int flag_compare(const void* a, const void* b);

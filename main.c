@@ -2,6 +2,7 @@
 #include <malloc.h>
 
 #include "ast/ast_node.h"
+#include "dgml/from_cfg.h"
 #include "language/common/function.h"
 #include "language/common/signature.h"
 #include "language/program.h"
@@ -55,7 +56,57 @@ static int draw_ast_graph(struct AstNode* ast, const char* file_name)
     return 0;
 }
 
-static int handle_file(CString* file_name, bool print_ast, bool print_log)
+static int draw_control_flow_graph(const char* function_name, struct CfgNode* cfg, const char* file_name)
+{
+    FILE* dgml_file = create_dgml_file(file_name);
+    if (dgml_file == NULL) {
+        puts("Error while writing .dmgl file");
+        return -1;
+    }
+
+    int err = from_cfg_to_dgml(function_name, cfg, dgml_file);
+    if (err != 0) {
+        puts("Error while writing .dmgl file");
+        fclose(dgml_file);
+        return err;
+    }
+
+    fclose(dgml_file);
+    return 0;
+}
+
+static int draw_all_control_flow_graph(struct Program* program, const char* file_name)
+{
+    for (size_t i = 0; i < program->functions_ptr.capacity; i++) {
+        if (program->functions_ptr.buffer[i].key == NULL) {
+            continue;
+        }
+        
+        struct Function** pointer = program->functions_ptr.buffer[i].value;
+        struct Function* function = *pointer;
+
+        const size_t file_name_length = strlen(file_name);
+        const size_t function_name_lenght = strlen(function->signature.name);
+
+        char* name = malloc((file_name_length + function_name_lenght + 2) * sizeof(char));
+        if (file_name == NULL) {
+            return -1;
+        }
+        sprintf(name, "%s.%s", file_name, function->signature.name);
+
+        int err = draw_control_flow_graph(function->signature.name, function->cfg, name);
+        if (err != 0) {
+            free(name);
+            return err;
+        }
+
+        free(name);
+    }
+
+    return 0;
+}
+
+static int handle_file(const CString* file_name, const bool print_ast, const bool print_log, const bool write_cfg)
 {   
     FILE* input_file = fopen(file_name->buffer, "r");
     if (input_file == NULL) {
@@ -178,6 +229,15 @@ static int handle_file(CString* file_name, bool print_ast, bool print_log)
         ast_node_destructor(&root);
         return err;
     }
+
+    if (write_cfg == true) {
+        err = draw_all_control_flow_graph(&program, file_name->buffer);
+        if (err != 0) {
+            program_free(&program);
+            ast_node_destructor(&root);
+            return err;
+        }
+    }    
     
     program_free(&program);
     ast_node_destructor(&root);
@@ -191,7 +251,7 @@ static int handle_files(struct UserInput* user_input)
 
     for (size_t i = 0; i < user_input->input_files.size; i++) {
         CString* file_name = vector_get(&user_input->input_files, i);
-        int err = handle_file(file_name, draw_ast_tree, user_input->print_log);
+        int err = handle_file(file_name, draw_ast_tree, user_input->print_log, user_input->write_cfg);
         if (err != 0) {
             return err;
         }

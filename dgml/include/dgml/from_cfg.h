@@ -5,6 +5,6 @@
 
 #include "middleend/cfg_node.h"
 
-int from_ast_to_dgml(struct CfgNode* node, FILE* file);
+int from_cfg_to_dgml(const char* function_name, struct CfgNode* node, FILE* file);
 
 #endif

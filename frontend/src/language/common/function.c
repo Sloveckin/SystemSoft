@@ -28,7 +28,6 @@ void function_free(struct Function* function)
     signature_free(&function->signature);
     if (function->cfg != NULL) {
         cfg_node_free(function->cfg);
-        free(function->cfg);
     }
 }
 

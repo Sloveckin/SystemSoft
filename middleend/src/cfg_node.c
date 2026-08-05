@@ -22,5 +22,12 @@ int cfg_node_init(struct CfgNode* node, char* text)
 
 void cfg_node_free(struct CfgNode* node)
 {
+    // Because it can be called in recursion..
+    if (node == NULL) {
+        return;
+    }
     free(node->text);
+    cfg_node_free(node->condition);
+    cfg_node_free(node->def);
+    free(node);
 }

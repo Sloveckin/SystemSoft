@@ -109,6 +109,9 @@ static char* get_text(struct AstNode* node)
             || node->type == AST_TYPE_UINT_TYPE
             || node->type == AST_TYPE_ULONG_TYPE) {
         return get_text_from_type(node);
+    } else if (node->type == AST_TYPE_IDENTIFIER
+            || node->type == AST_TYPE_DEC) {
+        return get_text_from_node(node);
     }
 
     assert(0);
@@ -184,20 +187,69 @@ static struct CfgNode* variables_creation(struct AstNode* node)
     return cfg_node;
 }
 
+static struct CfgNode* assigment(struct AstNode* node)
+{
+    assert(node->children.size == 2);
+
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* left = *pointer;
+
+    pointer = vector_get(&node->children, 1);
+    struct AstNode* right = *pointer;
+
+    char* left_text = get_text(left);
+    if (left_text == NULL) {
+        return NULL;
+    }
+
+    char* right_text = get_text(right);
+    if (right_text == NULL) {
+        free(left_text);
+        return NULL;
+    }
+    
+    const size_t left_text_len = strlen(left_text);
+    const size_t right_text_len = strlen(right_text);
+
+    char* assigment_text = malloc((left_text_len + right_text_len + 4) * sizeof(char));
+    if (assigment_text == NULL) {
+        free(left_text);
+        free(right_text);
+        return NULL;
+    }
+    
+    sprintf(assigment_text, "%s = %s", left_text, right_text);
+    free(left_text);
+    free(right_text);
+
+    struct CfgNode* cfg_node = malloc(sizeof(struct CfgNode));
+    if (cfg_node == NULL) {
+        free(assigment_text);
+        return NULL;
+    }
+
+    int err = cfg_node_init(cfg_node, assigment_text);
+    if (err != 0) {
+        free(cfg_node);
+        free(assigment_text);
+        return NULL;
+    }
+    
+    free(assigment_text);
+    return cfg_node;
+}
+
 static struct CfgNode* control_flow_graph_create(struct AstNode* node)
 {
     if (node->type == AST_TYPE_STATMENT_LIST) {
         return statement_list(node);
     } else if (node->type == AST_TYPE_VAR) {
         return variables_creation(node);
+    } else if (node->type == AST_TYPE_ASSIGMENT) {
+        return assigment(node);
     }
 
     assert(0);
-}
-
-static void control_flow_graph_free(struct CfgNode* node)
-{
-
 }
 
 int program_control_flow_graph(struct Program* program)
@@ -216,7 +268,6 @@ int program_control_flow_graph(struct Program* program)
         if (function->cfg == NULL) {
             return -1;
         }
-        puts(function->cfg->text);
     }
 
     return 0;

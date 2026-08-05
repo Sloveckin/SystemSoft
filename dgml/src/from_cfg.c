@@ -1,6 +1,23 @@
 #include "dgml/from_cfg.h"
+#include "middleend/cfg_node.h"
 
-inline static void print_start_node(char *function_name, FILE *file)
+void init_control_graph_id_(struct CfgNode *node, int* dgml_id)
+{
+  if (!node)
+    return;
+
+  if (node->dgml_data.visited == true)
+    return;
+
+  node->dgml_data.visited = true;
+  
+  node->dgml_data.id = (*dgml_id)++;
+  
+  init_control_graph_id_(node->def, dgml_id);
+  init_control_graph_id_(node->condition, dgml_id);
+}
+
+inline static void print_start_node(const char *function_name, FILE *file)
 {
   fprintf(file, "<Node Id=\"0\" Label=\"%s\" />\n", function_name);
 }
@@ -15,7 +32,7 @@ static void print_node(FILE *file, struct CfgNode *node)
   if (!node)
     return;
 
-  if (!node->dgml_data.visited)
+  if (node->dgml_data.visited == false)
     return;
   
   node->dgml_data.visited = false;
@@ -26,7 +43,7 @@ static void print_node(FILE *file, struct CfgNode *node)
   print_node(file, node->condition);
 }
 
-static void print_nodes(char *function_name, FILE *file, struct CfgNode *node)
+static void print_nodes(const char *function_name, FILE *file, struct CfgNode *node)
 {
   fputs("<Nodes>\n", file);
   print_start_node(function_name, file);
@@ -39,7 +56,7 @@ static void print_link(FILE *file, struct CfgNode* node)
   if (!node)
     return;
 
-  if (node->dgml_data.visited)
+  if (node->dgml_data.visited == true)
     return;
   
   node->dgml_data.visited = true;
@@ -64,11 +81,14 @@ static void print_links(FILE *file, struct CfgNode *node)
 }
 
 
-
-void control_graph_to_dgml(char *function_name, FILE *file, struct CfgNode *node)
+int from_cfg_to_dgml(const char *function_name, struct CfgNode *node,FILE *file)
 {
+  int id = 1;
+  init_control_graph_id_(node, &id);
+
   fputs("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<DirectedGraph xmlns=\"http://schemas.microsoft.com/vs/2009/dgml\" Layout=\"Sugiyama\" GraphDirection=\"TopToBottom\">\n", file);
   print_nodes(function_name, file, node);
   print_links(file, node);
   fputs("</DirectedGraph>\n", file);
+  return 0;
 }
