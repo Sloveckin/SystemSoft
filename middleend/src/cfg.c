@@ -634,6 +634,10 @@ static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct Cf
         return binary_operation(node, "or", ctx);
     } else if (node->type == AST_TYPE_AND) {
         return binary_operation(node, "and", ctx);
+    } else if (node->type == AST_TYPE_LESS) {
+        return binary_operation(node, "<", ctx);
+    } else if (node->type == AST_TYPE_MORE) {
+        return binary_operation(node, ">", ctx);
     } else if (node->type == AST_TYPE_RETURN) {
         return return_(node, ctx);
     } else if (node->type == AST_TYPE_WHILE_CYCLE) {

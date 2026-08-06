@@ -17,5 +17,11 @@ def test_basic3():
 def test_basic4():
     check_memory_leaks("./files/simple/test4.txt")
 
-def test_cycle1():
-    check_memory_leaks("./files/cycle/test1.txt")
+def test_cycle_do():
+    check_memory_leaks("./files/cycle/while.txt")
+
+def test_cycle_while():
+    check_memory_leaks("./files/cycle/do_while.txt")
+
+def test_cycle_until():
+    check_memory_leaks("./files/cycle/do_until.txt")
