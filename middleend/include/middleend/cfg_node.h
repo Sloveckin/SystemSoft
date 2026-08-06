@@ -8,6 +8,7 @@ struct CfgNode {
     char* text;
     struct CfgNode* def;
     struct CfgNode* condition;
+    struct CfgNode* end;
 
     struct {
         int id;

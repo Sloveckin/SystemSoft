@@ -217,6 +217,20 @@ static char* get_text(struct AstNode* node)
     assert(0);
 }
 
+static struct CfgNode* find_last_cfg_node(struct CfgNode* node)
+{
+
+    if (node->def == NULL && node->end == NULL) {
+        return node;
+    }
+
+    if (node->def != NULL) {
+        return find_last_cfg_node(node->def);
+    }
+
+    return node->end;
+}
+
 static struct CfgNode* statement_list(struct AstNode* node, struct CfgContext* ctx) 
 {
     if (node->children.size == 0) {
@@ -230,7 +244,10 @@ static struct CfgNode* statement_list(struct AstNode* node, struct CfgContext* c
     for (size_t i = 1; i < node->children.size; i++) {
         pointer = vector_get(&node->children, i);
         struct CfgNode* statment = control_flow_graph_create_(*pointer, ctx);
-        previous->def = statment;
+
+        struct CfgNode* last = find_last_cfg_node(previous);
+
+        last->def = statment;
         previous = statment;
     }
 
@@ -379,15 +396,22 @@ static struct CfgNode* if_block(struct AstNode* node, struct CfgContext* ctx)
             return NULL;
         }
 
+        condition->end = end;
         condition->condition = body;
         condition->def = else_block;
 
-        body->def = end;
-        else_block->def = end;
+        struct CfgNode* body_last = find_last_cfg_node(body);
+        body_last->def = end;
+
+        struct CfgNode* else_last = find_last_cfg_node(else_block);
+        else_last->def = end;
     } else {
+        condition->end = end;
         condition->condition = body;
         condition->def = end;
-        body->def = end;
+
+        struct CfgNode* body_last = find_last_cfg_node(body);
+        body_last->def = end;
     }
 
     return condition;

@@ -28,6 +28,7 @@ int cfg_node_init_empty(struct CfgNode* node, Vector* nodes)
     node->dgml_data.id = -1;
     node->dgml_data.visited = false;
     node->text = NULL;
+    node->end = NULL;
     
     return vector_push(nodes, &node);
 }
