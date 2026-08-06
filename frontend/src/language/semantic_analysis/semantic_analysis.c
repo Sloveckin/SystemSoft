@@ -921,6 +921,7 @@ static int analyze_cycle_or_if(struct AstNode* node, Vector* errors, bool* error
         };
         error_init(&invalid_type_error, ERROR_TYPE_INVALID_TYPE, data);
         
+        *error_occur = true;
         err = vector_push(errors, &invalid_type_error);
         if (err) {
             return err;
@@ -1093,7 +1094,7 @@ int semantic_function_analysis(struct Function* function, struct AstNode* node, 
     return 0;
 }
 
-static int handle_signature(struct Program* program, struct Signature* signature)
+static int handle_signature(struct Program* program, struct Signature* signature, bool* error_occur)
 {
     Vector errors;
     const ObjectInfo error_info = {
@@ -1106,15 +1107,14 @@ static int handle_signature(struct Program* program, struct Signature* signature
         return err;
     }
 
-    bool error_occur = false;
-    err = semantic_signature_analysis(signature, &errors, signature->semantic_context, &error_occur);
+    err = semantic_signature_analysis(signature, &errors, signature->semantic_context, error_occur);
     if (err != 0) {
         semantic_analysis_context_free(signature->semantic_context);
         vector_free(&errors);
         return err;
     }
 
-    if (error_occur == true) {
+    if (*error_occur == true) {
         for (size_t j = 0; j < errors.size; j++) {
             struct Error* error = vector_get(&errors, j);
             printf("%s\n", error_to_str(error));
@@ -1125,7 +1125,7 @@ static int handle_signature(struct Program* program, struct Signature* signature
     return 0;
 }
 
-static int handle_function(struct Program* program, struct Function* function)
+static int handle_function(struct Program* program, struct Function* function, bool* error_occur)
 {
     Vector errors;
     const ObjectInfo error_info = {
@@ -1138,14 +1138,13 @@ static int handle_function(struct Program* program, struct Function* function)
         return err;
     }
 
-    bool error_occur = false;
-    err = semantic_function_analysis(function, function->ast, &errors, &error_occur, program);
+    err = semantic_function_analysis(function, function->ast, &errors, error_occur, program);
     if (err != 0) {
         vector_free(&errors);
         return err;
     }
 
-    if (error_occur == true) {
+    if (*error_occur == true) {
         for (size_t j = 0; j < errors.size; j++) {
             struct Error* error = vector_get(&errors, j);
             printf("%s\n", error_to_str(error));
@@ -1156,7 +1155,7 @@ static int handle_function(struct Program* program, struct Function* function)
     return 0;
 }
 
-int program_semantic_analysis(struct Program* program)
+int program_semantic_analysis(struct Program* program, bool* error_occur)
 {
     for (size_t i = 0; i < program->signatures_ptr.capacity; i++) {
         if (program->signatures_ptr.buffer[i].key == NULL) {
@@ -1166,10 +1165,12 @@ int program_semantic_analysis(struct Program* program)
         struct Signature** pointer = program->signatures_ptr.buffer[i].value;
         struct Signature* signature = *pointer;
 
-        int err = handle_signature(program, signature);
+        bool flag = false;
+        int err = handle_signature(program, signature, &flag);
         if (err != 0) {
             return err;
         }
+        *error_occur |= flag;
     }
 
     for (size_t i = 0; i < program->functions_ptr.capacity; i++) {
@@ -1180,10 +1181,12 @@ int program_semantic_analysis(struct Program* program)
         struct Function** pointer = program->functions_ptr.buffer[i].value;
         struct Function* function = *pointer;
 
-        int err = handle_signature(program, &function->signature);
+        bool flag = false;
+        int err = handle_signature(program, &function->signature, &flag);
         if (err != 0) {
             return err;
         }
+        *error_occur |= flag;
     }
 
     for (size_t i = 0; i < program->functions_ptr.capacity; i++) {
@@ -1194,10 +1197,12 @@ int program_semantic_analysis(struct Program* program)
         struct Function** pointer = program->functions_ptr.buffer[i].value;
         struct Function* function = *pointer;
 
-        int err = handle_function(program, function);
+        bool flag = false;
+        int err = handle_function(program, function, &flag);
         if (err != 0) {
             return err;
         }
+        *error_occur |= flag;
     }
 
     return 0;

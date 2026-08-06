@@ -25,6 +25,6 @@ struct Type* get_type(struct AstNode* node, Vector* errors, struct SemanticConte
 
 int semantic_function_analysis(struct Function* function, struct AstNode* node, Vector* errors, bool* error_occur, struct Program* program);
 
-int program_semantic_analysis(struct Program* program);
+int program_semantic_analysis(struct Program* program, bool* error_occur);
 
 #endif

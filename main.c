@@ -215,12 +215,18 @@ static int handle_file(const CString* file_name, const bool print_ast, const boo
         cstring_free(&function_name);
     }
     
-
-    err = program_semantic_analysis(&program);
+    bool semantic_error = false;
+    err = program_semantic_analysis(&program, &semantic_error);
     if (err != 0) {
         program_free(&program);
         ast_node_destructor(&root);
         return err;
+    }
+
+    if (semantic_error == true) {
+        program_free(&program);
+        ast_node_destructor(&root);
+        return -2; 
     }
 
     err = program_control_flow_graph(&program);

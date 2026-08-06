@@ -1,7 +1,9 @@
 import subprocess as sb
 
+CLAKE_LOCATION = "../clake"
+
 def check_memory_leaks(path_to_file: str) -> None:
-    args = ["../clake"]
+    args = [CLAKE_LOCATION]
     args.append(path_to_file)
     sb.run(args, check=True)
 
