@@ -521,7 +521,16 @@ static int analyze_binary_operation(struct AstNode* node, Vector* errors, struct
             expr_info->type = right_info.type;
         }
     } else {
+        expr_info->type = malloc(sizeof(struct Type));
+        if (expr_info->type == NULL) {
+            return -1;
+        }
         expr_info->type->kind = TYPE_KIND_BOOL;
+
+        err = vector_push(&ctx->types, &expr_info->type);
+        if (err != 0) {
+            return err;
+        }
     }
 
     // Precomuting constant expressions

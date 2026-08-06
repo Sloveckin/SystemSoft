@@ -37,7 +37,7 @@ static void print_node(FILE *file, struct CfgNode *node)
   
   node->dgml_data.visited = false;
 
-  fprintf(file, "<Node Id=\"%d\" Label=\"%s\" />\n", node->dgml_data.id, node->text);
+  fprintf(file, "<Node Id=\"%d\" Label=\"%s\" />\n", node->dgml_data.id, node->text != NULL ? node->text : "empty");
 
   print_node(file, node->def);
   print_node(file, node->condition);

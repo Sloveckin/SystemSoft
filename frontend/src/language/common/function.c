@@ -2,6 +2,7 @@
 
 #include "language/common/signature.h"
 #include "language/program.h"
+#include "middleend/cfg_context.h"
 #include "middleend/cfg_node.h"
 
 #include <malloc.h>
@@ -17,6 +18,11 @@ int function_init(struct Function* function, struct Program* program, struct Ast
         return err;
     }
 
+    err = cfg_context_init(&function->cfg_context);
+    if (err != 0) {
+        return err;
+    }
+
     function->ast = node;
     function->cfg = NULL;
 
@@ -26,9 +32,7 @@ int function_init(struct Function* function, struct Program* program, struct Ast
 void function_free(struct Function* function)
 {
     signature_free(&function->signature);
-    if (function->cfg != NULL) {
-        cfg_node_free(function->cfg);
-    }
+    cfg_context_free(&function->cfg_context);
 }
 
 void function_des(void* value)
@@ -37,4 +41,3 @@ void function_des(void* value)
     function_free(*function);
     free(*function);
 }
-

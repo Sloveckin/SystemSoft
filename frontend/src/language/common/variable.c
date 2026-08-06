@@ -20,8 +20,6 @@ int variable_copy(void* dst, const void* src)
     struct Variable* variable_dst = dst;
     const struct Variable* variable_src = src;
 
-    //variable_dst->type = copy_type(variable_src->type);
-
     variable_dst->type = variable_src->type;
 
     const size_t name_len = strlen(variable_src->name) + 1;

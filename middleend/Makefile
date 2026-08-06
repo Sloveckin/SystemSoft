@@ -25,6 +25,7 @@ SRC+= \
 	src/cfg.c \
 	src/cfg_node.c \
 	src/optree.c \
+	src/cfg_context.c \
 
 OBJECTS := $(SRC:.c=.o)
 

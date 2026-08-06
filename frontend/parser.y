@@ -334,16 +334,16 @@ binary:  expr PLUS     expr {
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr EQ       expr { 
+       | expr OR       expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
-                                ast_node_init(node, AST_TYPE_EQ);
+                                ast_node_init(node, AST_TYPE_OR);
                                 vector_push(&node->children, &$1);
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr NOT_EQ   expr { 
+       | expr AND   expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
-                                ast_node_init(node, AST_TYPE_NOT_EQ);
+                                ast_node_init(node, AST_TYPE_AND);
                                 vector_push(&node->children, &$1);
                                 vector_push(&node->children, &$3);
                                 $$ = node;
@@ -362,16 +362,16 @@ binary:  expr PLUS     expr {
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr AND       expr { 
+       | expr EQ       expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
-                                ast_node_init(node, AST_TYPE_OR);
+                                ast_node_init(node, AST_TYPE_EQ);
                                 vector_push(&node->children, &$1);
                                 vector_push(&node->children, &$3);
                                 $$ = node;
                             }
-       | expr OR      expr { 
+       | expr NOT_EQ      expr { 
                                 struct AstNode* node = malloc(sizeof(struct AstNode));
-                                ast_node_init(node, AST_TYPE_AND);
+                                ast_node_init(node, AST_TYPE_NOT_EQ);
                                 vector_push(&node->children, &$1);
                                 vector_push(&node->children, &$3);
                                 $$ = node;

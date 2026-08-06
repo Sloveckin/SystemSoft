@@ -1,10 +1,16 @@
 #include "middleend/cfg_node.h"
+#include "colc/vector.h"
 
 #include <malloc.h>
 #include <string.h>
 
-int cfg_node_init(struct CfgNode* node, char* text)
+int cfg_node_init(struct CfgNode* node, char* text, Vector* nodes)
 {
+    int err = cfg_node_init_empty(node, nodes);
+    if (err != 0) {
+        return err;
+    }
+
     const size_t text_length = strlen(text) + 1;
     node->text = malloc(text_length * sizeof(char));
     if (node->text == NULL) {
@@ -12,22 +18,32 @@ int cfg_node_init(struct CfgNode* node, char* text)
     }
     strcpy(node->text, text);
 
+    return 0;
+}
+
+int cfg_node_init_empty(struct CfgNode* node, Vector* nodes)
+{
     node->def = NULL;
     node->condition = NULL;
     node->dgml_data.id = -1;
     node->dgml_data.visited = false;
-
-    return 0;
+    node->text = NULL;
+    
+    return vector_push(nodes, &node);
 }
+
 
 void cfg_node_free(struct CfgNode* node)
 {
-    // Because it can be called in recursion..
-    if (node == NULL) {
-        return;
+    if (node->text != NULL) {
+        free(node->text);
     }
-    free(node->text);
-    cfg_node_free(node->condition);
-    cfg_node_free(node->def);
-    free(node);
+}
+
+void cfg_node_des(void* value)
+{
+    struct CfgNode** node = value;
+    cfg_node_free(*node);
+    
+    free(*node);
 }
