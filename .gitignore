@@ -6,3 +6,4 @@ files/
 *.json
 .so
 .a
+./tests/__pycache__/*

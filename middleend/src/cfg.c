@@ -417,20 +417,17 @@ static struct CfgNode* if_block(struct AstNode* node, struct CfgContext* ctx)
 
     struct CfgNode* condition = control_flow_graph_create(condition_node, ctx);
     if (condition == NULL) {
-        free(end);
         return NULL;
     }
 
     struct CfgNode* body = control_flow_graph_create(body_node, ctx);
     if (body == NULL) {
-        free(end);
         return NULL;
     }
 
     if (else_node != NULL) {
         struct CfgNode* else_block = control_flow_graph_create(else_node, ctx);
         if (else_block == NULL) {
-            free(end);
             return NULL;
         }
 
@@ -537,6 +534,43 @@ static struct CfgNode* return_(struct AstNode* node, struct CfgContext* ctx)
     return cfg_node; 
 }
 
+static struct CfgNode* while_cycle(struct AstNode* node, struct CfgContext* ctx)
+{
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* condition_node = *pointer;
+
+    struct CfgNode* condition = control_flow_graph_create(condition_node, ctx);
+    if (condition == NULL) {
+        return NULL;
+    }
+
+    pointer = vector_get(&node->children, 1);
+    struct AstNode* statments_node = *pointer;
+
+    struct CfgNode* statments = control_flow_graph_create(statments_node, ctx);
+    if (statments == NULL) {
+        return NULL;
+    }
+
+    struct CfgNode* end = malloc(sizeof(struct CfgNode));
+    if (end == NULL) {
+        return NULL;
+    }
+    int err = cfg_node_init_empty(end, &ctx->nodes);
+    if (err != 0) {
+        free(end);
+        return NULL;
+    }
+
+    condition->def = end;
+    condition->condition = statments;
+
+    struct CfgNode* last_statment = find_last_cfg_node(statments);
+    last_statment->def = condition;
+
+    return condition;
+}
+
 static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct CfgContext* ctx)
 {
     if (node->type == AST_TYPE_STATMENT_LIST) {
@@ -557,6 +591,8 @@ static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct Cf
         return binary_operation(node, "and", ctx);
     } else if (node->type == AST_TYPE_RETURN) {
         return return_(node, ctx);
+    } else if (node->type == AST_TYPE_WHILE_CYCLE) {
+        return while_cycle(node, ctx);
     }
 
     assert(0);

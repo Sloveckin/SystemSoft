@@ -16,3 +16,6 @@ def test_basic3():
 
 def test_basic4():
     check_memory_leaks("./files/simple/test4.txt")
+
+def test_cycle1():
+    check_memory_leaks("./files/cycle/test1.txt")
