@@ -571,6 +571,51 @@ static struct CfgNode* while_cycle(struct AstNode* node, struct CfgContext* ctx)
     return condition;
 }
 
+static struct CfgNode* do_cycle(struct AstNode* node, struct CfgContext* ctx)
+{
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* statments_node = *pointer;
+
+    pointer = vector_get(&node->children, 1);
+    struct AstNode* while_or_cycle = *pointer;
+
+    pointer = vector_get(&node->children, 2);
+    struct AstNode* condition_node = *pointer;
+
+    struct CfgNode* statments = control_flow_graph_create(statments_node, ctx);
+    if (statments == NULL) {
+        return NULL;
+    }
+
+    struct CfgNode* condition = control_flow_graph_create(condition_node, ctx);
+    if (condition == NULL) {
+        return NULL;
+    }
+
+    struct CfgNode* end = malloc(sizeof(struct CfgNode));
+    if (end == NULL) {
+        return NULL;
+    }
+    int err = cfg_node_init_empty(end, &ctx->nodes);
+    if (err != 0) {
+        free(end);
+    }
+
+    struct CfgNode* last_statment = find_last_cfg_node(statments);
+    last_statment->def = condition;
+
+    if (while_or_cycle->type == AST_TYPE_WHILE) {
+        condition->def = end;
+        condition->condition = statments;
+    } else {
+        assert(while_or_cycle->type == AST_TYPE_UNTIL);
+        condition->condition = end;
+        condition->def = statments;
+    }
+
+    return statments;
+}
+
 static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct CfgContext* ctx)
 {
     if (node->type == AST_TYPE_STATMENT_LIST) {
@@ -593,6 +638,8 @@ static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct Cf
         return return_(node, ctx);
     } else if (node->type == AST_TYPE_WHILE_CYCLE) {
         return while_cycle(node, ctx);
+    } else if (node->type == AST_TYPE_DO) {
+        return do_cycle(node, ctx);
     }
 
     assert(0);
