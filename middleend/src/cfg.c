@@ -5,12 +5,15 @@
 
 #include "ast/ast_node.h"
 #include "ast/ast_node_type.h"
+#include "colc/cstring.h"
+#include "colc/object_info.h"
+#include "colc/vector.h"
 #include "language/common/function.h"
 #include "middleend/cfg_context.h"
 #include "middleend/cfg_node.h"
 
 
-static struct CfgNode* control_flow_graph_create_(struct AstNode* node, struct CfgContext* ctx);
+static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct CfgContext* ctx);
 
 static struct CfgNode* create_variable(struct AstNode* node);
 
@@ -18,35 +21,70 @@ static char* get_text(struct AstNode* node);
 
 static char* get_text_from_identifier_list(struct AstNode* node)
 {
-    //assert(node->type == AST_TYPE_IDENTIFIER_LIST);
+    Vector textes;
+    const ObjectInfo info = {
+        .size = sizeof(CString),
+        .copy = cstring_copy,
+        .destructor = cstring_free,
+    };
+
+    int err = vector_init(&textes, info);
+    if (err != 0) {
+        return NULL;
+    }
 
     size_t length_of_text = 0;
     for (size_t i = 0; i < node->children.size; i++) {
         struct AstNode** pointer = vector_get(&node->children, i);
         struct AstNode *identifier_node = *pointer;
 
-        length_of_text += strlen(identifier_node->text);
+        char* identifier_text = get_text(identifier_node);
+        if (identifier_text == NULL) {
+            vector_free(&textes);
+            return NULL;
+        }
+
+        CString str;
+        err = cstring_init(&str, identifier_text);
+        if (err != 0) {
+            free(identifier_text);
+            vector_free(&textes);
+            return NULL;
+        }
+
+        int err = vector_push(&textes, &str);
+        if (err != 0) {
+            free(identifier_text);
+            vector_free(&textes);
+            return NULL;
+        }
+
+        length_of_text += str.length;        
+
+        cstring_free(&str);
+        free(identifier_text);
     }
-    // Space and comma + place for \n
-    length_of_text += (node->children.size - 1) * 2 + 1;
+
+    length_of_text += (textes.size - 1) * 2 + 1;
     char* text = malloc(length_of_text * sizeof(char));
     if (text == NULL) {
+        vector_free(&textes);
         return NULL;
-    }   
-
-    struct AstNode** pointer = vector_get(&node->children, 0);
-    struct AstNode* first_node = *pointer;
-
-    strcpy(text, first_node->text);
-
-    for (size_t i = 1; i < node->children.size; i++) {
-        pointer = vector_get(&node->children, i);
-        struct AstNode* node = *pointer;
-        
-        strcat(text, ", ");
-        strcat(text, node->text);
     }
 
+    struct CString* first_string = vector_get(&textes, 0);
+    strcpy(text, first_string->buffer);
+
+    for (size_t i = 1; i < textes.size; i++) {
+
+        struct CString* string = vector_get(&textes, i);
+
+        strcat(text, ", ");
+        strcat(text, string->buffer);
+    }
+
+
+    vector_free(&textes);
     return text;
 }
 
@@ -238,12 +276,12 @@ static struct CfgNode* statement_list(struct AstNode* node, struct CfgContext* c
     }
 
     struct AstNode** pointer = vector_get(&node->children, 0);
-    struct CfgNode* previous = control_flow_graph_create_(*pointer, ctx);
+    struct CfgNode* previous = control_flow_graph_create(*pointer, ctx);
     struct CfgNode* start = previous;
 
     for (size_t i = 1; i < node->children.size; i++) {
         pointer = vector_get(&node->children, i);
-        struct CfgNode* statment = control_flow_graph_create_(*pointer, ctx);
+        struct CfgNode* statment = control_flow_graph_create(*pointer, ctx);
 
         struct CfgNode* last = find_last_cfg_node(previous);
 
@@ -377,20 +415,20 @@ static struct CfgNode* if_block(struct AstNode* node, struct CfgContext* ctx)
         return NULL;
     }
 
-    struct CfgNode* condition = control_flow_graph_create_(condition_node, ctx);
+    struct CfgNode* condition = control_flow_graph_create(condition_node, ctx);
     if (condition == NULL) {
         free(end);
         return NULL;
     }
 
-    struct CfgNode* body = control_flow_graph_create_(body_node, ctx);
+    struct CfgNode* body = control_flow_graph_create(body_node, ctx);
     if (body == NULL) {
         free(end);
         return NULL;
     }
 
     if (else_node != NULL) {
-        struct CfgNode* else_block = control_flow_graph_create_(else_node, ctx);
+        struct CfgNode* else_block = control_flow_graph_create(else_node, ctx);
         if (else_block == NULL) {
             free(end);
             return NULL;
@@ -438,14 +476,70 @@ static struct CfgNode* else_block(struct AstNode* node, struct CfgContext* ctx)
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* block = *pointer;
 
-    return control_flow_graph_create_(block, ctx);
+    return control_flow_graph_create(block, ctx);
 }
 
-static struct CfgNode* control_flow_graph_create_(struct AstNode* node, struct CfgContext* ctx)
+static struct CfgNode* binary_operation(struct AstNode* node, const char* sign, struct CfgContext* ctx)
 {
-    if (node == NULL) {
+    char* text = get_text_from_binary(node, sign);
+    struct CfgNode* cfg = malloc(sizeof(struct CfgNode));
+    if (cfg == NULL) {
+        free(text);
         return NULL;
-    } else if (node->type == AST_TYPE_STATMENT_LIST) {
+    }
+    
+    int err = cfg_node_init(cfg, text, &ctx->nodes); 
+    if (err != 0) {
+        free(cfg);
+        free(text);
+        return NULL;
+    }
+    
+    free(text);
+    return cfg;
+}
+
+static struct CfgNode* return_(struct AstNode* node, struct CfgContext* ctx)
+{
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* expr_node = *pointer;
+
+    char* text_expr = get_text(expr_node);
+    if (text_expr == NULL) {
+        return NULL;
+    }
+
+    const size_t expr_text_length = strlen(text_expr);
+
+    char* text = malloc((expr_text_length + 10) * sizeof(char));
+    if (text == NULL) {
+        free(text_expr);
+        return NULL;
+    }
+    sprintf(text, "return (%s)", text_expr);
+    free(text_expr);
+
+
+    struct CfgNode* cfg_node = malloc(sizeof(struct CfgNode));
+    if (cfg_node == NULL) {
+        free(text);
+        return NULL;
+    }
+
+    int err = cfg_node_init(cfg_node, text, &ctx->nodes);
+    if (err != 0) {
+        free(cfg_node);
+        free(text);
+        return NULL;
+    }
+    free(text);
+
+    return cfg_node; 
+}
+
+static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct CfgContext* ctx)
+{
+    if (node->type == AST_TYPE_STATMENT_LIST) {
         return statement_list(node, ctx);
     } else if (node->type == AST_TYPE_VAR) {
         return variables_creation(node, ctx);
@@ -457,14 +551,15 @@ static struct CfgNode* control_flow_graph_create_(struct AstNode* node, struct C
         return boolean(node, ctx);
     } else if (node->type == AST_TYPE_ELSE_BLOCK) {
         return else_block(node, ctx);
+    } else if (node->type == AST_TYPE_OR) {
+        return binary_operation(node, "or", ctx);
+    } else if (node->type == AST_TYPE_AND) {
+        return binary_operation(node, "and", ctx);
+    } else if (node->type == AST_TYPE_RETURN) {
+        return return_(node, ctx);
     }
 
     assert(0);
-}
-
-static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct CfgContext* ctx)
-{
-   return control_flow_graph_create_(node, ctx);
 }
 
 int program_control_flow_graph(struct Program* program)
