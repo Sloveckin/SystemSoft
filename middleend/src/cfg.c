@@ -133,7 +133,14 @@ static char* get_text_from_type(struct AstNode* node)
             return NULL;
         }
         strcpy(text, "ulong");
-    } else {
+    } else if (node->type == AST_TYPE_STRING_TYPE) {
+        text = malloc(7 * sizeof(char));
+        if (text == NULL) {
+            return NULL;
+        }
+        strcpy(text, "string");
+    } 
+    else {
         assert(0);
     }
 
@@ -222,11 +229,13 @@ static char* get_text(struct AstNode* node)
             || node->type == AST_TYPE_BOOL_TYPE
             || node->type == AST_TYPE_LONG_TYPE
             || node->type == AST_TYPE_UINT_TYPE
-            || node->type == AST_TYPE_ULONG_TYPE) {
+            || node->type == AST_TYPE_ULONG_TYPE
+            || node->type == AST_TYPE_STRING_TYPE) {
         return get_text_from_type(node);
     } else if (node->type == AST_TYPE_IDENTIFIER
             || node->type == AST_TYPE_DEC
-            || node->type == AST_TYPE_BOOL) {
+            || node->type == AST_TYPE_BOOL
+            || node->type == AST_TYPE_STR) {
         return get_text_from_node(node);
     } else if (node->type == AST_TYPE_PLUS) {
         return get_text_from_binary(node, "+");

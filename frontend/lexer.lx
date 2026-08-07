@@ -130,6 +130,7 @@ true|false  {
 
 
 \"[^\"\\]*(?:\\.[^\"\\]*)*\"    {
+                                    *strchr(++yytext, '\"') = 0;
                                     yylval.node = malloc(sizeof(struct AstNode));
                                     ast_node_init_with_text(yylval.node, AST_TYPE_STR, yytext);
                                     return STR;
