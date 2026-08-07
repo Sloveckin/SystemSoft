@@ -255,18 +255,31 @@ static char* get_text(struct AstNode* node)
     assert(0);
 }
 
-static struct CfgNode* find_last_cfg_node(struct CfgNode* node)
+static struct CfgNode* find_last_cfg_node(struct CfgNode* node, struct CfgNode* except)
 {
+
+    if (node->text != NULL && strcmp(node->text, "break") == 0) {
+        return node;
+    }
 
     if (node->def == NULL && node->end == NULL) {
         return node;
     }
 
     if (node->def != NULL) {
-        return find_last_cfg_node(node->def);
+        return find_last_cfg_node(node->def, except);
     }
 
     return node->end;
+}
+
+static void update_default(struct CfgNode* node, struct CfgNode* to)
+{
+    if (node->text != NULL && strcmp(node->text, "break") == 0) {
+        return;
+    }
+
+    node->def = to;
 }
 
 static struct CfgNode* statement_list(struct AstNode* node, struct CfgContext* ctx) 
@@ -283,9 +296,8 @@ static struct CfgNode* statement_list(struct AstNode* node, struct CfgContext* c
         pointer = vector_get(&node->children, i);
         struct CfgNode* statment = control_flow_graph_create(*pointer, ctx);
 
-        struct CfgNode* last = find_last_cfg_node(previous);
-
-        last->def = statment;
+        struct CfgNode* last = find_last_cfg_node(previous, NULL);
+        update_default(last, statment);
         previous = statment;
     }
 
@@ -435,18 +447,18 @@ static struct CfgNode* if_block(struct AstNode* node, struct CfgContext* ctx)
         condition->condition = body;
         condition->def = else_block;
 
-        struct CfgNode* body_last = find_last_cfg_node(body);
+        struct CfgNode* body_last = find_last_cfg_node(body, NULL);
         body_last->def = end;
 
-        struct CfgNode* else_last = find_last_cfg_node(else_block);
-        else_last->def = end;
+        struct CfgNode* else_last = find_last_cfg_node(else_block, NULL);
+        update_default(else_last, end);
     } else {
         condition->end = end;
         condition->condition = body;
         condition->def = end;
 
-        struct CfgNode* body_last = find_last_cfg_node(body);
-        body_last->def = end;
+        struct CfgNode* body_last = find_last_cfg_node(body, NULL);
+        update_default(body_last, end);
     }
 
     return condition;
@@ -547,11 +559,6 @@ static struct CfgNode* while_cycle(struct AstNode* node, struct CfgContext* ctx)
     pointer = vector_get(&node->children, 1);
     struct AstNode* statments_node = *pointer;
 
-    struct CfgNode* statments = control_flow_graph_create(statments_node, ctx);
-    if (statments == NULL) {
-        return NULL;
-    }
-
     struct CfgNode* end = malloc(sizeof(struct CfgNode));
     if (end == NULL) {
         return NULL;
@@ -561,13 +568,20 @@ static struct CfgNode* while_cycle(struct AstNode* node, struct CfgContext* ctx)
         free(end);
         return NULL;
     }
+    ctx->after_cycle = end;
 
+
+    struct CfgNode* statments = control_flow_graph_create(statments_node, ctx);
+    if (statments == NULL) {
+        return NULL;
+    }
+
+    condition->end = end;
     condition->def = end;
     condition->condition = statments;
 
-    struct CfgNode* last_statment = find_last_cfg_node(statments);
-    last_statment->def = condition;
-
+    struct CfgNode* last_statment = find_last_cfg_node(statments, end);
+    update_default(last_statment, condition);
     return condition;
 }
 
@@ -582,6 +596,16 @@ static struct CfgNode* do_cycle(struct AstNode* node, struct CfgContext* ctx)
     pointer = vector_get(&node->children, 2);
     struct AstNode* condition_node = *pointer;
 
+    struct CfgNode* end = malloc(sizeof(struct CfgNode));
+    if (end == NULL) {
+        return NULL;
+    }
+    int err = cfg_node_init_empty(end, &ctx->nodes);
+    if (err != 0) {
+        free(end);
+    }
+    ctx->after_cycle = end;
+
     struct CfgNode* statments = control_flow_graph_create(statments_node, ctx);
     if (statments == NULL) {
         return NULL;
@@ -592,18 +616,10 @@ static struct CfgNode* do_cycle(struct AstNode* node, struct CfgContext* ctx)
         return NULL;
     }
 
-    struct CfgNode* end = malloc(sizeof(struct CfgNode));
-    if (end == NULL) {
-        return NULL;
-    }
-    int err = cfg_node_init_empty(end, &ctx->nodes);
-    if (err != 0) {
-        free(end);
-    }
 
-    struct CfgNode* last_statment = find_last_cfg_node(statments);
+    struct CfgNode* last_statment = find_last_cfg_node(statments, end);
     last_statment->def = condition;
-
+    statments->end = end;
     if (while_or_cycle->type == AST_TYPE_WHILE) {
         condition->def = end;
         condition->condition = statments;
@@ -613,7 +629,27 @@ static struct CfgNode* do_cycle(struct AstNode* node, struct CfgContext* ctx)
         condition->def = statments;
     }
 
+    ctx->after_cycle = NULL;
     return statments;
+}
+
+static struct CfgNode* break_(struct AstNode* node, struct CfgContext* ctx)
+{
+    struct CfgNode* cfg_node = malloc(sizeof(struct CfgNode));
+    if (cfg_node == NULL) {
+        return NULL;
+    }
+
+    int err = cfg_node_init(cfg_node, "break", &ctx->nodes);
+    if (err != 0) {
+        free(cfg_node);
+        return NULL;
+    }
+
+    assert(ctx->after_cycle != NULL);
+    cfg_node->def = ctx->after_cycle;
+
+    return cfg_node;
 }
 
 static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct CfgContext* ctx)
@@ -637,13 +673,19 @@ static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct Cf
     } else if (node->type == AST_TYPE_LESS) {
         return binary_operation(node, "<", ctx);
     } else if (node->type == AST_TYPE_MORE) {
-        return binary_operation(node, ">", ctx);
+        return binary_operation(node, ">", ctx);    
+    } else if (node->type == AST_TYPE_EQ) {
+        return binary_operation(node, "==", ctx);
+    } else if (node->type == AST_TYPE_NOT_EQ) {
+        return binary_operation(node, "<>", ctx);
     } else if (node->type == AST_TYPE_RETURN) {
         return return_(node, ctx);
     } else if (node->type == AST_TYPE_WHILE_CYCLE) {
         return while_cycle(node, ctx);
     } else if (node->type == AST_TYPE_DO) {
         return do_cycle(node, ctx);
+    } else if (node->type == AST_TYPE_BREAK) {
+        return break_(node, ctx);
     }
 
     assert(0);

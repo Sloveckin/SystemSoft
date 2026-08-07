@@ -5,7 +5,7 @@
 #include "middleend/cfg_node.h"
 
 struct CfgContext {
-    struct CfgNode* break_block;
+    struct CfgNode* after_cycle;
 
     Vector nodes;
 };

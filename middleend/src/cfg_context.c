@@ -6,7 +6,7 @@
 
 int cfg_context_init(struct CfgContext* ctx)
 {
-    ctx->break_block = NULL;
+    ctx->after_cycle = NULL;
 
     const ObjectInfo info = {
         .size = sizeof(struct CfgNode*),

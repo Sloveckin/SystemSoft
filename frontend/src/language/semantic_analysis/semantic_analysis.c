@@ -1182,7 +1182,7 @@ int program_semantic_analysis(struct Program* program, bool* error_occur)
         struct Function* function = *pointer;
 
         bool flag = false;
-        int err = handle_signature(program, &function->signature, &flag);
+        int err = handle_signature(program, &function->signature, error_occur);
         if (err != 0) {
             return err;
         }
