@@ -107,11 +107,10 @@ static struct Type* analyze_array_type(struct AstNode* node, Vector* errors, str
     return (struct Type*)array_type;
 }
 
-static struct Type* init_basic_type(enum TypeKind type_kind, int *error)
+static struct Type* init_basic_type(enum TypeKind type_kind)
 {
     struct Type* type = malloc(sizeof(struct Type));
     if (type == NULL) {
-        *error = -1;
         return NULL;
     }
     type->kind = type_kind;
@@ -124,19 +123,19 @@ struct Type* get_type(struct AstNode* node, Vector* errors, struct SemanticConte
     struct Type* result;
 
     if (node == NULL) {
-        result = init_basic_type(TYPE_KIND_VOID, error);
+        result = init_basic_type(TYPE_KIND_VOID);
     } else if (node->type == AST_TYPE_INT_TYPE) {
-        result =  init_basic_type(TYPE_KIND_INT, error);
+        result =  init_basic_type(TYPE_KIND_INT);
     } else if (node->type == AST_TYPE_UINT_TYPE) {
-        result = init_basic_type(TYPE_KIND_UINT, error);
+        result = init_basic_type(TYPE_KIND_UINT);
     } else if (node->type == AST_TYPE_BOOL_TYPE) {
-        result = init_basic_type(TYPE_KIND_BOOL, error);
+        result = init_basic_type(TYPE_KIND_BOOL);
     } else if (node->type == AST_TYPE_LONG_TYPE) {
-        result = init_basic_type(TYPE_KIND_BOOL, error);
+        result = init_basic_type(TYPE_KIND_BOOL);
     } else if (node->type == AST_TYPE_ULONG_TYPE) {
-        result = init_basic_type(TYPE_KIND_ULONG, error);
+        result = init_basic_type(TYPE_KIND_ULONG);
     } else if (node->type == AST_TYPE_STRING_TYPE) {
-        result = init_basic_type(TYPE_KIND_ULONG, error);
+        result = init_basic_type(TYPE_KIND_ULONG);
     } else if (node->type == AST_TYPE_ARRAY) {
         result = analyze_array_type(node, errors, ctx, error_occur, error);
     } else {
@@ -469,7 +468,18 @@ static int analyze_binary_comparing(struct AstNode* node, Vector* errors, struct
         return 0;
     }
 
-    expr_info->type = left_info.type;
+    struct Type* boolean_type = init_basic_type(TYPE_KIND_BOOL);
+    if (boolean_type == NULL) {
+        return -1;
+    }
+
+    err = vector_push(&ctx->types, &boolean_type);
+    if (err != 0) {
+        free(boolean_type);
+        return -1;
+    }
+
+    expr_info->type = boolean_type;
     expr_info->is_constant = left_info.is_constant && right_info.is_constant;
 
     return 0;
@@ -941,7 +951,7 @@ static int analyze_do_cycle(struct AstNode* node, Vector* errors, bool* error_oc
 
 static int analyze_while_cycle(struct AstNode* node, Vector* errors, bool* error_occur, struct SemanticContext* ctx)
 {
-   ctx->cycle_counter++;
+    ctx->cycle_counter++;
     int res = analyze_cycle_or_if(node, errors, error_occur, ctx, 0);
     ctx->cycle_counter--;
     return res;
