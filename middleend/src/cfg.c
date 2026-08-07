@@ -618,7 +618,8 @@ static struct CfgNode* do_cycle(struct AstNode* node, struct CfgContext* ctx)
 
 
     struct CfgNode* last_statment = find_last_cfg_node(statments, end);
-    last_statment->def = condition;
+    update_default(last_statment, condition);
+
     statments->end = end;
     if (while_or_cycle->type == AST_TYPE_WHILE) {
         condition->def = end;
