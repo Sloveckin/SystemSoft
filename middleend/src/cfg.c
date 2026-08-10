@@ -11,6 +11,7 @@
 #include "language/common/function.h"
 #include "middleend/cfg_context.h"
 #include "middleend/cfg_node.h"
+#include "middleend/optree.h"
 
 
 static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct CfgContext* ctx);
@@ -356,9 +357,11 @@ static struct CfgNode* variables_creation(struct AstNode* node, struct CfgContex
     if (err != 0) {
         free(text);
         free(cfg_node);
+        return NULL;
     }
-
     free(text);
+
+    cfg_node->operation_node = operation_tree_create(node);
 
     return cfg_node;
 }
@@ -410,7 +413,9 @@ static struct CfgNode* assigment(struct AstNode* node, struct CfgContext* ctx)
         free(assigment_text);
         return NULL;
     }
-    
+
+    cfg_node->operation_node = operation_tree_create(node);
+
     free(assigment_text);
     return cfg_node;
 }

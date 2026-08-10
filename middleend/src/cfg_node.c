@@ -1,5 +1,6 @@
 #include "middleend/cfg_node.h"
 #include "colc/vector.h"
+#include "middleend/optree.h"
 
 #include <malloc.h>
 #include <string.h>
@@ -29,6 +30,7 @@ int cfg_node_init_empty(struct CfgNode* node, Vector* nodes)
     node->dgml_data.visited = false;
     node->text = NULL;
     node->end = NULL;
+    node->operation_node = NULL;
     
     return vector_push(nodes, &node);
 }
@@ -38,6 +40,10 @@ void cfg_node_free(struct CfgNode* node)
 {
     if (node->text != NULL) {
         free(node->text);
+    }
+
+    if (node->operation_node != NULL) {
+        operation_tree_des(&node->operation_node);
     }
 }
 

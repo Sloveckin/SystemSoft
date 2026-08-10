@@ -2,6 +2,7 @@
 #define CFG_NODE_H
 
 #include "colc/vector.h"
+#include "middleend/optree.h"
 #include <stdbool.h>
 
 struct CfgNode {
@@ -9,6 +10,8 @@ struct CfgNode {
     struct CfgNode* def;
     struct CfgNode* condition;
     struct CfgNode* end;
+
+    struct OperationTreeNode* operation_node;
 
     struct {
         int id;

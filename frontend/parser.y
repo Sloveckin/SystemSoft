@@ -260,6 +260,7 @@ return: RETURN expression
                                 vector_push(&$1->children, &$2);
                                 $$ = $1;
                             }
+;
 
 else_block_opt: { $$ = NULL; }
             |   else_block { $$ = $1; }
