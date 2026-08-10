@@ -664,6 +664,8 @@ static struct CfgNode* break_(struct AstNode* node, struct CfgContext* ctx)
     assert(ctx->after_cycle != NULL);
     cfg_node->def = ctx->after_cycle;
 
+    cfg_node->operation_node = operation_tree_create(node);
+
     return cfg_node;
 }
 

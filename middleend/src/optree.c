@@ -2,6 +2,7 @@
 #include "ast/ast_node_type.h"
 #include "colc/object_info.h"
 #include "colc/vector.h"
+#include "middleend/cfg_node.h"
 
 #include <malloc.h>
 #include <string.h>
@@ -354,6 +355,56 @@ static struct OperationTreeNode* binary_operation(struct AstNode* node, const en
     return binary;
 }
 
+static struct OperationTreeNode* break_(struct AstNode* node)
+{
+    struct OperationTreeNode* op_node = malloc(sizeof(struct OperationTreeNode));
+    if (op_node == NULL) {
+        return NULL;
+    }
+
+    int err = operation_tree_node_init(op_node, OP_NODE_BREAK);
+    if (err != 0) {
+        free(op_node);
+        return NULL;
+    }
+
+    return op_node;
+}
+
+static struct OperationTreeNode* return_(struct AstNode* node)
+{
+     struct OperationTreeNode* op_node = malloc(sizeof(struct OperationTreeNode));
+    if (op_node == NULL) {
+        return NULL;
+    }
+
+    int err = operation_tree_node_init(op_node, OP_NODE_RETURN);
+    if (err != 0) {
+        free(op_node);
+        return NULL;
+    }
+
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* expr_node = *pointer;
+
+    struct OperationTreeNode* expr = operation_tree_create(expr_node);
+    if (expr == NULL) {
+        operation_tree_free(op_node);
+        free(op_node);
+        return NULL;
+    }
+
+    err = vector_push(&op_node->children, &expr);
+    if (err != 0) {
+        operation_tree_free(expr);
+        free(expr);
+        operation_tree_free(op_node);
+        free(op_node);
+        return NULL;
+    }
+
+    return op_node;
+}
 
 struct OperationTreeNode* operation_tree_create(struct AstNode* node)
 {
@@ -384,6 +435,10 @@ struct OperationTreeNode* operation_tree_create(struct AstNode* node)
         return binary_operation(node, OP_NODE_TYPE_OR);
     } else if (node->type == AST_TYPE_AND) {
         return binary_operation(node, OP_NODE_TYPE_AND);
+    } else if (node->type == AST_TYPE_BREAK) {
+        return break_(node);
+    } else if (node->type == AST_TYPE_RETURN) {
+        return return_(node);
     }
 
     // Not expected branch

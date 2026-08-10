@@ -27,6 +27,8 @@ enum OperationNodeType {
     OP_NODE_TYPE_MORE,
     OP_NODE_TYPE_EQ,
     OP_NODE_NOT_EQ,
+    OP_NODE_BREAK,
+    OP_NODE_RETURN,
 };
 
 struct OperationTreeNode {
