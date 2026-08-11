@@ -138,27 +138,72 @@ static struct OperationTreeNode* type(struct AstNode* node)
         return NULL;
     }
 
-    enum OperationNodeType type;
+    enum OperationNodeType op_type;
     if (node->type == AST_TYPE_INT_TYPE) {
-        type = OP_NODE_TYPE_INT;
+        op_type = OP_NODE_TYPE_INT;
     } else if (node->type == AST_TYPE_UINT_TYPE) {
-        type = OP_NODE_TYPE_UINT;
+        op_type = OP_NODE_TYPE_UINT;
     } else if (node->type == AST_TYPE_LONG_TYPE) {
-        type = OP_NODE_TYPE_LONG;
+        op_type = OP_NODE_TYPE_LONG;
     } else if (node->type == AST_TYPE_ULONG_TYPE) {
-        type = OP_NODE_TYPE_ULONG;
+        op_type = OP_NODE_TYPE_ULONG;
     } else if (node->type == AST_TYPE_BOOL_TYPE) {
-        type = OP_NODE_TYPE_BOOL;
+        op_type = OP_NODE_TYPE_BOOL;
     } else if (node->type == AST_TYPE_STRING_TYPE) {
-        type = OP_NODE_TYPE_STRING;
+        op_type = OP_NODE_TYPE_STRING;
+    } else if (node->type == AST_TYPE_ARRAY) {
+        op_type = OP_NODE_TYPE_ARRAY;
     } else {
         assert(0);
     }
 
-    int err = operation_tree_node_init(op_node, type);
+    int err = operation_tree_node_init(op_node, op_type);
     if (err != 0) {
         free(op_node);
         return NULL;
+    }
+
+    if (op_type == OP_NODE_TYPE_ARRAY) {
+        struct AstNode** pointer = vector_get(&node->children, 0);
+        struct AstNode* node_type = *pointer;
+
+        pointer = vector_get(&node->children, 1);
+        struct AstNode* length_node = *pointer;
+
+        struct OperationTreeNode* array_type = type(node_type);
+        if (array_type == NULL) {
+            operation_tree_free(op_node);
+            free(op_node);
+            return NULL;
+        }
+
+        struct OperationTreeNode* array_length = operation_tree_create(length_node);
+        if (array_length == NULL) {
+            operation_tree_free(array_type);
+            free(array_type);
+            operation_tree_free(op_node);
+            free(op_node);
+            return NULL;
+        }
+
+        err = vector_push(&op_node->children, &array_type);
+        if (err != 0) {
+            operation_tree_free(array_type);
+            free(array_type);
+            operation_tree_free(op_node);
+            free(op_node);
+            return NULL;
+        }
+
+        err = vector_push(&op_node->children, &array_length);
+        if (err != 0) {
+            operation_tree_free(array_type);
+            free(array_type);
+            operation_tree_free(op_node);
+            free(op_node);
+            return NULL;
+        }
+
     }
 
     return op_node;
@@ -373,7 +418,7 @@ static struct OperationTreeNode* break_(struct AstNode* node)
 
 static struct OperationTreeNode* return_(struct AstNode* node)
 {
-     struct OperationTreeNode* op_node = malloc(sizeof(struct OperationTreeNode));
+    struct OperationTreeNode* op_node = malloc(sizeof(struct OperationTreeNode));
     if (op_node == NULL) {
         return NULL;
     }
@@ -406,6 +451,11 @@ static struct OperationTreeNode* return_(struct AstNode* node)
     return op_node;
 }
 
+static struct OperationTreeNode* array(struct AstNode* node)
+{
+
+}
+
 struct OperationTreeNode* operation_tree_create(struct AstNode* node)
 {
     if (node->type == AST_TYPE_VAR) {
@@ -417,7 +467,8 @@ struct OperationTreeNode* operation_tree_create(struct AstNode* node)
             || node->type == AST_TYPE_LONG_TYPE
             || node->type == AST_TYPE_ULONG_TYPE
             || node->type == AST_TYPE_BOOL_TYPE
-            || node->type == AST_TYPE_STRING_TYPE) {
+            || node->type == AST_TYPE_STRING_TYPE
+            || node->type == AST_TYPE_ARRAY) {
         return type(node);
     } else if (node->type == AST_TYPE_IDENTIFIER || node->type == AST_TYPE_DEC) {
         return create_load(node);

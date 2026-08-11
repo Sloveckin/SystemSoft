@@ -1012,7 +1012,11 @@ static int analyze_statement(struct AstNode* node, Vector* errors, bool* error_o
         return analyze_break(node, errors, error_occur, ctx);
     } else if (node->type == AST_TYPE_RETURN) {
         return analyze_return(node, errors, error_occur, ctx);
+    } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
+        struct ExpressionInfo info;
+        return analyze_function_call(node, errors, ctx, error_occur, &info);
     }
+
     assert (0);
 }
 

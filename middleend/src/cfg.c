@@ -220,6 +220,44 @@ static char* get_text_from_call_or_indexer(struct AstNode* node)
     return text;
 }
 
+static char* get_text_from_array(struct AstNode* node)
+{
+
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* type_node = *pointer;
+
+    char* type = get_text_from_type(type_node);
+    if (type == NULL) {
+        return NULL;
+    }
+
+    pointer = vector_get(&node->children, 1);
+    struct AstNode* length_node = *pointer;
+
+    char* length = get_text_from_node(length_node);
+    if (length == NULL) {
+        free(type);
+        return NULL;
+    }
+
+    const size_t type_length = strlen(type);
+    const size_t length_length = strlen(length);
+
+    const size_t len = type_length + length_length + 3;
+
+    char* text = malloc(len * sizeof(char));
+    if (text == NULL) {
+        free(type);
+        free(length);
+        return NULL;
+    }
+    sprintf(text, "%s(%s)", type, length);
+
+    free(type);
+    free(length);
+
+    return text;
+}
 
 static char* get_text(struct AstNode* node)
 {
@@ -260,6 +298,8 @@ static char* get_text(struct AstNode* node)
         return get_text_from_binary(node, "<>");
     } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
         return get_text_from_call_or_indexer(node);
+    } else if (node->type == AST_TYPE_ARRAY) {
+        return get_text_from_array(node);
     }
 
     assert(0);
