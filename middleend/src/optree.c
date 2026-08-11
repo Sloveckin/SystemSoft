@@ -227,6 +227,7 @@ static struct OperationTreeNode* identifier_list(struct AstNode* node)
         struct OperationTreeNode* identifier = operation_tree_create(child);
         err = vector_push(&op_node->children, &identifier);
         if (err != 0) {
+            operation_tree_free(op_node);
             free(op_node);
             return NULL;
         }
@@ -451,15 +452,94 @@ static struct OperationTreeNode* return_(struct AstNode* node)
     return op_node;
 }
 
-static struct OperationTreeNode* array(struct AstNode* node)
+static struct OperationTreeNode* call_or_indexer(struct AstNode* node)
 {
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* name_node = *pointer;
 
+    pointer = vector_get(&node->children, 1);
+    struct AstNode* expr_list_node = *pointer;
+
+    struct OperationTreeNode* call = malloc(sizeof(struct OperationTreeNode));
+    if (call == NULL) {
+        return NULL;
+    }
+
+    int err = operation_tree_node_init(call,OP_NODE_CALL_OR_INDEXER);
+    if (err != 0) {
+        free(call);
+        return NULL;
+    }
+
+    struct OperationTreeNode* name = operation_tree_create(name_node);
+    if (name == NULL) {
+        operation_tree_free(call);
+        free(call);
+        return NULL;
+    }
+
+    struct OperationTreeNode* expr_list = operation_tree_create(expr_list_node);
+    if (expr_list == NULL) {
+        operation_tree_free(expr_list);
+        free(expr_list);
+        operation_tree_free(call);
+        free(call);
+        return NULL;
+    }
+
+    err = vector_push(&call->children, &name);
+    if (err != 0) {
+        operation_tree_free(expr_list);
+        free(expr_list);
+        operation_tree_free(call);
+        free(call);
+        return NULL;
+    }
+
+    err = vector_push(&call->children, &expr_list);
+    if (err != 0) {
+        operation_tree_free(expr_list);
+        free(expr_list);
+        operation_tree_free(call);
+        free(call);
+        return NULL;
+    }
+
+    return call;
 }
+
+struct OperationTreeNode* expr_list(struct AstNode* node)
+{
+    struct OperationTreeNode* op_node = malloc(sizeof(struct OperationTreeNode));
+    if (op_node == NULL) {
+        return NULL;
+    }
+    int err = operation_tree_node_init(op_node, OP_NODE_EXPR_LIST);
+    if (err != 0) {
+        free(op_node);
+        return NULL;
+    }
+
+    for (size_t i = 0; i < node->children.size; i++) {
+        struct AstNode** pointer = vector_get(&node->children, i);
+        struct AstNode* child = *pointer;
+        struct OperationTreeNode* identifier = operation_tree_create(child);
+        err = vector_push(&op_node->children, &identifier);
+        if (err != 0) {
+            operation_tree_free(op_node);
+            free(op_node);
+            return NULL;
+        }
+    }
+
+    return op_node;
+}
+
 
 struct OperationTreeNode* operation_tree_create(struct AstNode* node)
 {
     if (node->type == AST_TYPE_VAR) {
-        return  variables_creation(node); 
+        return variables_creation(node); 
     } else if (node->type == AST_TYPE_IDENTIFIER_LIST) {
         return identifier_list(node);
     } else if (node->type == AST_TYPE_INT_TYPE
@@ -490,6 +570,10 @@ struct OperationTreeNode* operation_tree_create(struct AstNode* node)
         return break_(node);
     } else if (node->type == AST_TYPE_RETURN) {
         return return_(node);
+    } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
+        return call_or_indexer(node);
+    } else if (node->type == AST_TYPE_EXPR_LIST) {
+        return expr_list(node);
     }
 
     // Not expected branch

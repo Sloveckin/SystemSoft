@@ -30,6 +30,8 @@ enum OperationNodeType {
     OP_NODE_NOT_EQ,
     OP_NODE_BREAK,
     OP_NODE_RETURN,
+    OP_NODE_CALL_OR_INDEXER,
+    OP_NODE_EXPR_LIST,
 };
 
 struct OperationTreeNode {
