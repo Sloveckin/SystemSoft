@@ -2,7 +2,6 @@
 #include "ast/ast_node_type.h"
 #include "colc/object_info.h"
 #include "colc/vector.h"
-#include "middleend/cfg_node.h"
 
 #include <malloc.h>
 #include <string.h>
@@ -209,13 +208,13 @@ static struct OperationTreeNode* type(struct AstNode* node)
     return op_node;
 }
 
-static struct OperationTreeNode* identifier_list(struct AstNode* node)
+struct OperationTreeNode* list(struct AstNode* node, const enum OperationNodeType type)
 {
     struct OperationTreeNode* op_node = malloc(sizeof(struct OperationTreeNode));
     if (op_node == NULL) {
         return NULL;
     }
-    int err = operation_tree_node_init(op_node, OP_NODE_IDENTIFIER_LIST);
+    int err = operation_tree_node_init(op_node, type);
     if (err != 0) {
         free(op_node);
         return NULL;
@@ -234,6 +233,16 @@ static struct OperationTreeNode* identifier_list(struct AstNode* node)
     }
 
     return op_node;
+}
+
+static struct OperationTreeNode* identifier_list(struct AstNode* node)
+{
+    return list(node, OP_NODE_IDENTIFIER_LIST);
+}
+
+struct OperationTreeNode* expr_list(struct AstNode* node)
+{
+    return list(node, OP_NODE_EXPR_LIST);
 }
 
 static struct OperationTreeNode* create_store(struct AstNode* node)
@@ -508,33 +517,41 @@ static struct OperationTreeNode* call_or_indexer(struct AstNode* node)
     return call;
 }
 
-struct OperationTreeNode* expr_list(struct AstNode* node)
+static struct OperationTreeNode* unary(struct AstNode* node, const enum OperationNodeType type)
 {
-    struct OperationTreeNode* op_node = malloc(sizeof(struct OperationTreeNode));
-    if (op_node == NULL) {
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* expr_node = *pointer;
+
+    struct OperationTreeNode* op = malloc(sizeof(struct OperationTreeNode));
+    if (op == NULL) {
         return NULL;
     }
-    int err = operation_tree_node_init(op_node, OP_NODE_EXPR_LIST);
+
+    int err = operation_tree_node_init(op, type);
     if (err != 0) {
-        free(op_node);
+        free(op);
         return NULL;
     }
 
-    for (size_t i = 0; i < node->children.size; i++) {
-        struct AstNode** pointer = vector_get(&node->children, i);
-        struct AstNode* child = *pointer;
-        struct OperationTreeNode* identifier = operation_tree_create(child);
-        err = vector_push(&op_node->children, &identifier);
-        if (err != 0) {
-            operation_tree_free(op_node);
-            free(op_node);
-            return NULL;
-        }
+    
+    struct OperationTreeNode* expr = operation_tree_create(expr_node);
+    if (expr == NULL) {
+        operation_tree_free(op);
+        free(op);
+        return NULL;
     }
 
-    return op_node;
-}
+    err = vector_push(&op->children, &expr);
+    if (err != 0) {
+        operation_tree_free(expr);
+        free(expr);
+        operation_tree_free(op);
+        free(op);
+        return NULL;
+    }
 
+    return op;
+}
 
 struct OperationTreeNode* operation_tree_create(struct AstNode* node)
 {
@@ -574,6 +591,10 @@ struct OperationTreeNode* operation_tree_create(struct AstNode* node)
         return call_or_indexer(node);
     } else if (node->type == AST_TYPE_EXPR_LIST) {
         return expr_list(node);
+    } else if (node->type == AST_TYPE_UNARY_MINUS) {
+        return unary(node, OP_NODE_UNARY_MINUS);
+    } else if (node->type == AST_TYPE_UNARY_PLUS) {
+        return unary(node, OP_NODE_UNARY_PLUS);
     }
 
     // Not expected branch

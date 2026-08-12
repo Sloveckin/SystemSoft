@@ -293,10 +293,10 @@ static struct Type* check_is_variable(struct AstNode* node, Vector* errors, stru
     }
 
     cstring_free(&variable_name);
-    return 0;
+    return NULL;
 }
 
-static struct Type* is_lvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool *error_occur, int* error)
+static struct Type* is_lvalue(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, int* error)
 {
     if (node->type == AST_TYPE_IDENTIFIER) {
         return check_is_variable(node, errors, ctx, error_occur, error);
@@ -316,6 +316,27 @@ static struct Type* is_lvalue(struct AstNode* node, Vector* errors, struct Seman
     }
 
     return NULL;
+}
+
+static bool is_rvalue(struct AstNode* node)
+{
+    if (node->type == AST_TYPE_DEC
+        || node->type == AST_TYPE_BOOL
+        || node->type == AST_TYPE_STR
+        || node->type == AST_TYPE_IDENTIFIER
+        || node->type == AST_TYPE_PLUS
+        || node->type == AST_TYPE_MINUS
+        || node->type == AST_TYPE_MUL
+        || node->type == AST_TYPE_DIV
+        || node->type == AST_TYPE_OR || node->type == AST_TYPE_AND
+        || node->type == AST_TYPE_MORE || node->type == AST_TYPE_LESS || node->type == AST_TYPE_EQ || node->type == AST_TYPE_NOT_EQ
+        || node->type == AST_TYPE_CALL_OR_INDEXER
+        || node->type == AST_TYPE_UNARY_MINUS || node->type == AST_TYPE_UNARY_PLUS
+        || node->type == AST_TYPE_ARRAY) {
+        return true;
+    }
+
+    return false;
 }
 
 static int analyze_identifier_list(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, struct Type* type)
@@ -702,7 +723,45 @@ static int analyze_function_call(struct AstNode* node, Vector* errors, struct Se
     }
 
     struct Variable* variable = get_variable_by_name(ctx, &variable_name);
+    // That means that is array
     if (variable != NULL) {
+
+        if (is_rvalue(args_node) == false) {
+            struct Error error;
+            union ErrorData data;
+            // TODO: create normal error
+            strcpy(data.text, caller_node->text);
+            error_init(&error, ERROR_TYPE_NOT_RVALUE, data);
+            err = vector_push(errors, &error);
+            *error_occur = true;
+            cstring_free(&variable_name);
+            return err;
+        }
+
+        struct ExpressionInfo info;
+        int err = analyze_rvalue(args_node, errors, ctx, error_occur, &info);
+        if (err != 0) {
+            cstring_free(&variable_name);
+            return err;
+        }
+        
+        struct Type long_type = {
+            .kind = TYPE_KIND_LONG,
+        };
+
+
+        if (types_suitable(info.type, &long_type) == false) {
+            struct Error error;
+            union ErrorData data;
+            // TODO: create normal error
+            strcpy(data.text, caller_node->text);
+            error_init(&error, ERROR_TYPE_INVALID_AMOUNT_OF_ARGUMENTS, data);
+            *error_occur = true;
+            err = vector_push(errors, &error);
+            cstring_free(&variable_name);
+            return err;
+        }
+
         expr_info->type = variable->type;
         cstring_free(&variable_name);
         return 0;
@@ -1046,7 +1105,6 @@ static int semantic_signature_analysis(struct Signature* signature, Vector* erro
     struct AstNode **pointer;
     pointer = vector_get(&signature->ast->children, 1);
     struct AstNode* arg_def_list_node = *pointer;
-
 
     Vector variables;
     const ObjectInfo info = {

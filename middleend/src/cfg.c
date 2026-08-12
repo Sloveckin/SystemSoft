@@ -259,6 +259,31 @@ static char* get_text_from_array(struct AstNode* node)
     return text;
 }
 
+static char* get_text_from_unary(struct AstNode* node, const char* sign)
+{
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* expr_node = *pointer;
+
+    char* expr_text = get_text(expr_node);
+    if (expr_text == NULL) {
+        return NULL;
+    }
+
+    const size_t expr_text_length = strlen(expr_text);
+    const size_t sign_length = strlen(sign);
+
+    char* text = malloc((expr_text_length + sign_length + 1) * sizeof(char));
+    if (text == NULL) {
+        free(expr_text);
+        return NULL;
+    }
+    sprintf(text, "%s%s", sign, expr_text);
+
+    free(expr_text);
+
+    return text;
+}
+
 static char* get_text(struct AstNode* node)
 {
     if (node->type == AST_TYPE_IDENTIFIER_LIST
@@ -300,6 +325,10 @@ static char* get_text(struct AstNode* node)
         return get_text_from_call_or_indexer(node);
     } else if (node->type == AST_TYPE_ARRAY) {
         return get_text_from_array(node);
+    } else if (node->type == AST_TYPE_UNARY_MINUS) {
+        return get_text_from_unary(node, "-");
+    } else if (node->type == AST_TYPE_UNARY_PLUS) {
+        return get_text_from_unary(node, "+");
     }
 
     assert(0);
@@ -709,6 +738,40 @@ static struct CfgNode* break_(struct AstNode* node, struct CfgContext* ctx)
     return cfg_node;
 }
 
+static struct CfgNode* call_or_indexer(struct AstNode* node, struct CfgContext* ctx)
+{
+
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* name_node = *pointer;
+
+    pointer = vector_get(&node->children, 1);
+    struct AstNode* expr_list_node = *pointer;
+
+    char* text = get_text_from_call_or_indexer(node);
+    if (text == NULL) {
+        return NULL;
+    }
+
+    struct CfgNode* call = malloc(sizeof(struct CfgNode));
+    if (call == NULL) {
+        free(text);
+        return NULL;
+    }
+
+    int err = cfg_node_init(call, text, &ctx->nodes);
+    if (err != 0) {
+        free(call);
+        free(text);
+        return NULL;
+    }
+
+    call->operation_node = operation_tree_create(node);
+
+    free(text);
+
+    return call;
+}
+
 static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct CfgContext* ctx)
 {
     if (node->type == AST_TYPE_STATMENT_LIST) {
@@ -743,6 +806,8 @@ static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct Cf
         return do_cycle(node, ctx);
     } else if (node->type == AST_TYPE_BREAK) {
         return break_(node, ctx);
+    } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
+        return call_or_indexer(node, ctx);
     }
 
     assert(0);

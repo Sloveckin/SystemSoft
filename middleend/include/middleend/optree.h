@@ -32,6 +32,8 @@ enum OperationNodeType {
     OP_NODE_RETURN,
     OP_NODE_CALL_OR_INDEXER,
     OP_NODE_EXPR_LIST,
+    OP_NODE_UNARY_MINUS,
+    OP_NODE_UNARY_PLUS,
 };
 
 struct OperationTreeNode {

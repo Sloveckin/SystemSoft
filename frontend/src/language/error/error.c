@@ -43,6 +43,8 @@ char* error_to_str(struct Error* error)
         sprintf(error_message, "Break outside of cycle");
     } else if (error->type == ERROR_TYPE_NOT_UNSIGNED_NUMBER) {
         sprintf(error_message, "Expression can't be converted to unsigned number");
+    } else if (error->type == ERROR_TYPE_NOT_RVALUE) {
+        sprintf(error_message, "Expression %s not rvalue", error->data.text);
     } else {
         assert(0);
     }
