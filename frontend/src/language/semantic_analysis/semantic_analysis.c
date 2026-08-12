@@ -300,6 +300,10 @@ static struct Type* is_lvalue(struct AstNode* node, Vector* errors, struct Seman
 {
     if (node->type == AST_TYPE_IDENTIFIER) {
         return check_is_variable(node, errors, ctx, error_occur, error);
+    } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
+        struct AstNode** pointer = vector_get(&node->children, 0);
+        struct AstNode* name_of_array_node = *pointer;
+        return check_is_variable(name_of_array_node, errors, ctx, error_occur, error);
     }
 
     *error_occur = true;

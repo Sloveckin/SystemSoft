@@ -8,6 +8,7 @@ enum OperationNodeType {
     OP_NODE_IDENTIFIER_LIST,
     OP_NODE_IDENTIFIER,
     OP_NODE_STORE,
+    OP_NODE_STORE_ARRAY,
     OP_NODE_LOAD,
     OP_NODE_CONST,
     OP_NODE_TYPE_INT,
@@ -40,8 +41,8 @@ struct OperationTreeNode {
     enum OperationNodeType type;
 
     char* argument;
-    Vector children;
 
+    Vector children;
     struct {
         int id;
         bool flag;

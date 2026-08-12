@@ -252,11 +252,71 @@ static struct OperationTreeNode* create_store(struct AstNode* node)
         return NULL;
     }
 
-    int err = operation_tree_node_init_with_argument(store, OP_NODE_STORE, node->text);
-    if (err != 0) {
-        free(store);
-        return NULL;
+    if (node->type == AST_TYPE_IDENTIFIER) {
+        int err = operation_tree_node_init_with_argument(store, OP_NODE_STORE, node->text);
+        if (err != 0) {
+            free(store);
+            return NULL;
+        }
+    } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
+        struct AstNode** pointer = vector_get(&node->children, 0);
+        struct AstNode* name_node = *pointer;
+
+        pointer = vector_get(&node->children, 1);
+        struct AstNode* length_node = *pointer;
+
+
+        struct OperationTreeNode* name = operation_tree_create(name_node);
+        if (name == NULL) {
+            operation_tree_free(store);
+            free(store);
+            return NULL;
+        }
+
+        struct OperationTreeNode* length = operation_tree_create(length_node);
+        if (length == NULL) {
+            operation_tree_free(name);
+            free(name);
+            operation_tree_free(store);
+            free(store);
+            return NULL;
+        }
+
+        int err = operation_tree_node_init(store, OP_NODE_STORE_ARRAY);
+        if (err != 0) {
+            operation_tree_free(length);
+            free(length);
+            operation_tree_free(name);
+            free(name);
+            operation_tree_free(store);
+            free(store);
+            return NULL;
+        }
+
+        err = vector_push(&store->children, &name);
+        if (err != 0) {
+            operation_tree_free(length);
+            free(length);
+            operation_tree_free(name);
+            free(name);
+            operation_tree_free(store);
+            free(store);
+            return NULL;
+        }
+
+        err = vector_push(&store->children, &length);
+        if (err != 0) {
+            operation_tree_free(length);
+            free(length);
+            operation_tree_free(name);
+            free(name);
+            operation_tree_free(store);
+            free(store);
+            return NULL;
+        }
+
     }
+
 
     return store;
 }
