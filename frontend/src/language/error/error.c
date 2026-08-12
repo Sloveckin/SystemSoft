@@ -45,6 +45,8 @@ char* error_to_str(struct Error* error)
         sprintf(error_message, "Expression can't be converted to unsigned number");
     } else if (error->type == ERROR_TYPE_NOT_RVALUE) {
         sprintf(error_message, "Expression %s not rvalue", error->data.text);
+    } else if (error->type == ERROR_TYPE_INVALID_AMOUNT_OF_ARG_IN_ARRAY) {
+        sprintf(error_message, "Invalid amount of arguments in array indexing"); 
     } else {
         assert(0);
     }

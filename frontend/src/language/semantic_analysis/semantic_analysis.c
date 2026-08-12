@@ -689,6 +689,42 @@ static int analyze_call_arguments(struct AstNode* node, Vector* errors, struct S
     return 0;
 }
 
+static int analyze_array_argument(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur)
+{
+    if (node->children.size != 1) {
+        struct Error error;
+        union ErrorData data;
+        error_init(&error, ERROR_TYPE_INVALID_AMOUNT_OF_ARG_IN_ARRAY ,data);
+        
+        *error_occur = true;
+
+        return vector_push(errors, &error);
+    }
+
+
+    struct AstNode** pointer = vector_get(&node->children, 0);
+    struct AstNode* arg = *pointer;
+
+    struct ExpressionInfo info;
+    int err = analyze_rvalue(arg, errors, ctx, error_occur, &info);
+
+    struct Type long_type = {
+        .kind = TYPE_KIND_LONG
+    };
+
+    if (types_suitable(&long_type, info.type) == true) {
+        return 0;
+    }
+
+    struct Error error;
+    union ErrorData data;
+    error_init(&error, ERROR_TYPE_NOT_UNSIGNED_NUMBER ,data);
+        
+    *error_occur = true;
+
+    return vector_push(errors, &error);
+}
+
 static int analyze_function_call(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info)
 {
     assert(node->type == AST_TYPE_CALL_OR_INDEXER);
@@ -726,40 +762,15 @@ static int analyze_function_call(struct AstNode* node, Vector* errors, struct Se
     // That means that is array
     if (variable != NULL) {
 
-        if (is_rvalue(args_node) == false) {
-            struct Error error;
-            union ErrorData data;
-            // TODO: create normal error
-            strcpy(data.text, caller_node->text);
-            error_init(&error, ERROR_TYPE_NOT_RVALUE, data);
-            err = vector_push(errors, &error);
-            *error_occur = true;
-            cstring_free(&variable_name);
-            return err;
-        }
-
-        struct ExpressionInfo info;
-        int err = analyze_rvalue(args_node, errors, ctx, error_occur, &info);
+        int err = analyze_array_argument(args_node, errors, ctx, error_occur);
         if (err != 0) {
             cstring_free(&variable_name);
             return err;
         }
-        
-        struct Type long_type = {
-            .kind = TYPE_KIND_LONG,
-        };
 
-
-        if (types_suitable(info.type, &long_type) == false) {
-            struct Error error;
-            union ErrorData data;
-            // TODO: create normal error
-            strcpy(data.text, caller_node->text);
-            error_init(&error, ERROR_TYPE_INVALID_AMOUNT_OF_ARGUMENTS, data);
-            *error_occur = true;
-            err = vector_push(errors, &error);
+        if (*error_occur == true) {
             cstring_free(&variable_name);
-            return err;
+            return 0;
         }
 
         expr_info->type = variable->type;
@@ -770,6 +781,11 @@ static int analyze_function_call(struct AstNode* node, Vector* errors, struct Se
     struct Signature* signature = get_signature_by_name(ctx, &variable_name);
     if (signature != NULL) {
         int err = analyze_call_arguments(args_node, errors, ctx, error_occur, signature);
+        if (err != 0) {
+            cstring_free(&variable_name);
+            return err;
+        }
+
         if (*error_occur == true) {
             cstring_free(&variable_name);
             return 0;

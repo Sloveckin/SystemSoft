@@ -22,7 +22,7 @@ bool types_suitable(const struct Type* a, const struct Type* b)
         return true;
     }
 
-    if (a->kind == TYPE_KIND_ULONG && b->kind == TYPE_KIND_ULONG) {
+    if (a->kind == TYPE_KIND_ULONG && b->kind == TYPE_KIND_UINT) {
         return true;
     }
 
