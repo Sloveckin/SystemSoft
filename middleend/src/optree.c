@@ -613,6 +613,27 @@ static struct OperationTreeNode* unary(struct AstNode* node, const enum Operatio
     return op;
 }
 
+static struct OperationTreeNode* bool_(struct AstNode* node)
+{
+    struct OperationTreeNode* boolean = malloc(sizeof(struct OperationTreeNode));
+    if (boolean == NULL) {
+        return NULL;
+    }
+
+    int err;
+    if (strcmp(node->text, "true") == 0) {
+        err = operation_tree_node_init_with_argument(boolean, OP_NODE_TYPE_BOOL, "true");
+    } else {
+        err = operation_tree_node_init_with_argument(boolean, OP_NODE_TYPE_BOOL, "false");
+    }
+
+    if (err != 0) {
+        free(boolean);
+    }
+
+    return boolean;
+}
+
 struct OperationTreeNode* operation_tree_create(struct AstNode* node)
 {
     if (node->type == AST_TYPE_VAR) {
@@ -627,7 +648,7 @@ struct OperationTreeNode* operation_tree_create(struct AstNode* node)
             || node->type == AST_TYPE_STRING_TYPE
             || node->type == AST_TYPE_ARRAY) {
         return type(node);
-    } else if (node->type == AST_TYPE_IDENTIFIER || node->type == AST_TYPE_DEC) {
+    } else if (node->type == AST_TYPE_IDENTIFIER || node->type == AST_TYPE_DEC || node->type == AST_TYPE_STR || node->type == AST_TYPE_BOOL) {
         return create_load(node);
     } else if (node->type == AST_TYPE_ASSIGMENT) {
         return assigment(node);

@@ -10,6 +10,7 @@ const char* type_to_string[] = {
     "long",
     "ulong",
     "string",
+    "char",
 };
 
 bool types_suitable(const struct Type* a, const struct Type* b)

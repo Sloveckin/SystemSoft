@@ -131,13 +131,15 @@ struct Type* get_type(struct AstNode* node, Vector* errors, struct SemanticConte
     } else if (node->type == AST_TYPE_BOOL_TYPE) {
         result = init_basic_type(TYPE_KIND_BOOL);
     } else if (node->type == AST_TYPE_LONG_TYPE) {
-        result = init_basic_type(TYPE_KIND_BOOL);
+        result = init_basic_type(TYPE_KIND_LONG);
     } else if (node->type == AST_TYPE_ULONG_TYPE) {
         result = init_basic_type(TYPE_KIND_ULONG);
     } else if (node->type == AST_TYPE_STRING_TYPE) {
-        result = init_basic_type(TYPE_KIND_ULONG);
+        result = init_basic_type(TYPE_KIND_STRING);
     } else if (node->type == AST_TYPE_ARRAY) {
         result = analyze_array_type(node, errors, ctx, error_occur, error);
+    } else if (node->type == AST_TYPE_CHAR_TYPE) {
+        result = init_basic_type(TYPE_KIND_CHAR);
     } else {
         assert (0);
     }
@@ -1066,6 +1068,20 @@ static int analyze_return(struct AstNode* node, Vector* errors, bool* error_occu
     int err = analyze_rvalue(expression, errors, ctx, error_occur, &info);
     if (err != 0) {
         return err;
+    }
+
+    if (types_suitable(ctx->signature->return_type, info.type) == false) {
+        struct Error error;
+        union ErrorData data = {
+            .types = {
+                .first_type = ctx->signature->return_type->kind,
+                .second_type = info.type->kind,
+            }
+        };
+
+        error_init(&error, ERROR_TYPE_INVALID_RETURN_TYPE ,data);
+        *error_occur =  true;   
+        return vector_push(errors, &error);
     }
 
     if (*error_occur == true) {

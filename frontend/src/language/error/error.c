@@ -47,6 +47,8 @@ char* error_to_str(struct Error* error)
         sprintf(error_message, "Expression %s not rvalue", error->data.text);
     } else if (error->type == ERROR_TYPE_INVALID_AMOUNT_OF_ARG_IN_ARRAY) {
         sprintf(error_message, "Invalid amount of arguments in array indexing"); 
+    } else if (error->type == ERROR_TYPE_INVALID_RETURN_TYPE) {
+        sprintf(error_message, "Invalid return type. Expected %s, but was %s", type_to_string[error->data.types.first_type], type_to_string[error->data.types.second_type]);
     } else {
         assert(0);
     }

@@ -13,6 +13,7 @@ enum TypeKind {
     TYPE_KIND_ULONG = 5,
     TYPE_KIND_STRING = 6,
     TYPE_KIND_ARRAY = 7,
+    TYPE_KIND_CHAR = 8,
 };
 
 struct Type {

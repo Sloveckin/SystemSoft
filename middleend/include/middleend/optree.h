@@ -35,6 +35,7 @@ enum OperationNodeType {
     OP_NODE_EXPR_LIST,
     OP_NODE_UNARY_MINUS,
     OP_NODE_UNARY_PLUS,
+    OP_NODE_BOOL,
 };
 
 struct OperationTreeNode {

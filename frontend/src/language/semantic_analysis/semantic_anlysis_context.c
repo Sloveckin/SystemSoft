@@ -10,7 +10,7 @@
 #include "colc/map.h"
 #include "colc/object_info.h"
 
-int semantic_analysis_context_init(struct SemanticContext* ctx, struct Program* program)
+int semantic_analysis_context_init(struct SemanticContext* ctx, struct Program* program, struct Signature* signature)
 {
     const ObjectInfo key_info = {
         .size = sizeof(CString),
@@ -45,6 +45,7 @@ int semantic_analysis_context_init(struct SemanticContext* ctx, struct Program* 
 
     ctx->program = program;
     ctx->cycle_counter = 0;
+    ctx->signature = signature;
 
     return 0;
 }
