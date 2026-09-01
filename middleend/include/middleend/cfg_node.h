@@ -14,6 +14,10 @@ struct CfgNode {
     struct OperationTreeNode* operation_node;
 
     struct {
+        bool asm_generated;
+    } asm_data;
+
+    struct {
         int id;
         bool visited;
     } dgml_data;

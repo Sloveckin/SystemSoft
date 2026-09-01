@@ -20,6 +20,7 @@ INCLUDE+= \
 	-Igenerated \
 	-Iinclude \
 	-I../middleend/include \
+	-I../backend/include \
 	-I../colc/include \
 
 SRC+= \

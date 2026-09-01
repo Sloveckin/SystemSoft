@@ -12,5 +12,7 @@ int program_init(struct Program* program);
 
 void program_free(struct Program* program);
 
+int program_generate_asm(struct Program* program);
+
 
 #endif

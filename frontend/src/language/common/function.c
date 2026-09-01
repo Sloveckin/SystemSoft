@@ -1,9 +1,9 @@
 #include "language/common/function.h"
 
+#include "backend/asm/riscv/asm_generator.h"
 #include "language/common/signature.h"
 #include "language/program.h"
 #include "middleend/cfg_context.h"
-#include "middleend/cfg_node.h"
 
 #include <malloc.h>
 #include <assert.h>
@@ -25,12 +25,15 @@ int function_init(struct Function* function, struct Program* program, struct Ast
 
     function->ast = node;
     function->cfg = NULL;
+    function->riscv_context = NULL;
 
     return 0;
 }
 
 void function_free(struct Function* function)
 {
+    risc_v_context_free(function->riscv_context);
+    free(function->riscv_context);
     signature_free(&function->signature);
     cfg_context_free(&function->cfg_context);
 }

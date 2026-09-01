@@ -1,4 +1,4 @@
-LIBRARY=libmiddleend.so
+LIBRARY=libbackend.so
 BUILD=release
 
 ifeq ($(BUILD),debug)
@@ -18,15 +18,16 @@ endif
 
 INCLUDE+= \
 	-Iinclude \
-	-I../frontend/include \
-	-I../backend/include \
 	-I../colc/include \
+	-I../middleend/include \
+	-I../frontend/include \
 
 SRC+= \
-	src/cfg.c \
-	src/cfg_node.c \
-	src/optree.c \
-	src/cfg_context.c \
+	src/asm/riscv/machine.c \
+	src/asm/riscv/asm_generator.c \
+	src/asm/riscv/asm_instruction.c \
+	src/asm/riscv/asm_line.c \
+	src/asm/riscv/register.c \
 
 OBJECTS := $(SRC:.c=.o)
 

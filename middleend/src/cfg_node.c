@@ -31,6 +31,7 @@ int cfg_node_init_empty(struct CfgNode* node, Vector* nodes)
     node->text = NULL;
     node->end = NULL;
     node->operation_node = NULL;
+    node->asm_data.asm_generated = false;
     
     return vector_push(nodes, &node);
 }

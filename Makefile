@@ -22,6 +22,7 @@ INCLUDE+= \
 	-Iuser-input/include \
 	-Idgml/include \
 	-Imiddleend/include \
+	-Ibackend/include \
 
 LDPATH+= \
 	-Ldgml \
@@ -29,6 +30,7 @@ LDPATH+= \
 	-Luser-input \
 	-Lcolc \
 	-Lmiddleend \
+	-Lbackend \
 
 LIBS+= \
 	-ldgml \
@@ -36,6 +38,7 @@ LIBS+= \
 	-luser_input \
 	-lcolc \
 	-lmiddleend \
+	-lbackend
 
 OBJECTS+=\
 	main.o\
@@ -43,6 +46,7 @@ OBJECTS+=\
 all: library $(BINARY)
 
 library:
+	$(MAKE) -C backend BUILD=$(BUILD)
 	$(MAKE) -C frontend BUILD=$(BUILD)
 	$(MAKE) -C middleend BUILD=$(BUILD)
 	$(MAKE) -C user-input BUILD=$(BUILD)
@@ -57,6 +61,7 @@ $(BINARY): $(OBJECTS)
 clean:
 	$(MAKE) -C frontend clean
 	$(MAKE) -C middleend clean
+	$(MAKE) -C backend clean
 	$(MAKE) -C user-input clean
 	$(MAKE) -C dgml clean
 	rm -f $(BINARY) $(OBJECTS)

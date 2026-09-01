@@ -1,8 +1,13 @@
 #include "language/program.h"
 
+#include "backend/asm/riscv/machine.h"
+#include "colc/vector.h"
 #include "language/common/function.h"
 #include "colc/cstring.h"
 #include "language/common/signature.h"
+#include "backend/asm/riscv/asm_generator.h"
+
+#include <malloc.h>
 
 int program_init(struct Program* program)
 {
@@ -39,4 +44,38 @@ void program_free(struct Program* program)
 {
     map_free(&program->signatures_ptr);
     map_free(&program->functions_ptr);
+}
+
+int program_generate_asm(struct Program* program)
+{
+    for (size_t i = 0; i < program->functions_ptr.capacity; i++) {
+        if (program->functions_ptr.buffer[i].key == NULL) {
+            continue;
+        }
+
+        struct Function** pointer = program->functions_ptr.buffer[i].value;
+        struct Function* function = *pointer;
+        
+
+        struct RiscVContext* ctx = malloc(sizeof(struct RiscVContext));
+        if (ctx == NULL) {
+            return -1;
+        }
+
+        int err = risc_v_context_init(ctx);
+        if (err != 0) {
+            risc_v_context_free(ctx);
+            return err;
+        }
+
+        err = risc_v_generate_asm(function->cfg, ctx);
+        if (err) {
+            risc_v_context_free(ctx);
+            return err;
+        }
+
+        function->riscv_context = ctx;
+    }
+
+    return 0;
 }

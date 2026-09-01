@@ -3,7 +3,7 @@
 
 #include "ast/ast_node.h"
 #include "dgml/from_cfg.h"
-#include "language/common/function.h"
+
 #include "language/common/signature.h"
 #include "language/program.h"
 #include "language/semantic_analysis/semantic_analysis.h"
@@ -16,25 +16,35 @@
 #include "user_input.h"
 #include "dgml/from_ast.h"
 
+static FILE* create_file(const char* file_name, const char* extenstion)
+{
+    const size_t file_name_len = strlen(file_name) + strlen(extenstion) + 2;
+    char* full_file_name = malloc(file_name_len * sizeof(char));
+    if (full_file_name == NULL) {
+        printf("Error while creating %s.%s file\n", file_name, extenstion);
+        return NULL;
+    }
+    sprintf(full_file_name, "%s.%s", file_name, extenstion);
+
+    FILE* file = fopen(full_file_name, "w");
+    if (file == NULL) {
+        printf("Error while creating %s.%s file\n", file_name, extenstion);
+        free(full_file_name);
+        return NULL;
+    }
+
+    free(full_file_name);
+    return file;
+}
+
 static FILE* create_dgml_file(const char* file_name)
 {
-    const size_t len_dgml_file_name = strlen(file_name) + 6;
-    char* dgml_file_name = malloc(len_dgml_file_name * sizeof(char));
-    sprintf(dgml_file_name, "%s.dgml", file_name);
-    if (dgml_file_name == NULL) {
-        printf("Error while creating %s.dmgl file\n", file_name);
-        return NULL;
-    }
+    return create_file(file_name, "dgml");
+}
 
-    FILE* dgml_file = fopen(dgml_file_name, "w");
-    if (dgml_file == NULL) {
-        printf("Error while creating %s.dmgl file\n", file_name);
-        free(dgml_file_name);
-        return NULL;
-    }
-
-    free(dgml_file_name);
-    return dgml_file;
+static FILE* create_asm_file(const char* file_name)
+{
+    return create_file(file_name, "asm");
 }
 
 static int draw_ast_graph(struct AstNode* ast, const char* file_name)
@@ -103,6 +113,25 @@ static int draw_all_control_flow_graph(struct Program* program, const char* file
         free(name);
     }
 
+    return 0;
+}
+
+static int write_all_into_asm_file(struct Program* program, const char* file_name) 
+{
+    for (size_t i = 0; i < program->functions_ptr.capacity; i++) {
+        if (program->functions_ptr.buffer[i].key == NULL) {
+            continue;
+        }
+
+        struct Function** pointer = program->functions_ptr.buffer[i].value;
+        struct Function* function = *pointer;
+
+        FILE* file = create_asm_file(file_name);
+        if (file == NULL) {
+            return -1;
+        }
+        
+    }
     return 0;
 }
 
@@ -243,7 +272,21 @@ static int handle_file(const CString* file_name, const bool print_ast, const boo
             ast_node_destructor(&root);
             return err;
         }
-    }    
+    }
+
+    err = program_generate_asm(&program);
+    if (err != 0) {
+        program_free(&program);
+        ast_node_destructor(&root);
+        return err;
+    }
+
+    err = write_all_into_asm_file(&program, file_name->buffer);
+    if (err != 0) {
+        program_free(&program);
+        ast_node_destructor(&root);
+        return err;
+    }
     
     program_free(&program);
     ast_node_destructor(&root);

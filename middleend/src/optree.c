@@ -351,7 +351,7 @@ static struct OperationTreeNode* assigment(struct AstNode* node)
         free(assigment);
     }
 
-    int err = operation_tree_node_init(assigment, OP_NODE_TYPE_ASSIGMENT);
+    int err = operation_tree_node_init(assigment, OP_NODE_ASSIGMENT);
     if (err != 0) {
         free(assigment);
         return NULL;
@@ -653,17 +653,17 @@ struct OperationTreeNode* operation_tree_create(struct AstNode* node)
     } else if (node->type == AST_TYPE_ASSIGMENT) {
         return assigment(node);
     } else if (node->type == AST_TYPE_PLUS) {
-        return binary_operation(node, OP_NODE_TYPE_PLUS);
+        return binary_operation(node, OP_NODE_PLUS);
     } else if (node->type == AST_TYPE_MINUS) {
-        return binary_operation(node, OP_NODE_TYPE_MINUS);
+        return binary_operation(node, OP_NODE_MINUS);
     } else if (node->type == AST_TYPE_MUL) {
-        return binary_operation(node, OP_NODE_TYPE_MUL);
+        return binary_operation(node, OP_NODE_MUL);
     } else if (node->type == AST_TYPE_DIV) {
-        return binary_operation(node, OP_NODE_TYPE_DIV);
+        return binary_operation(node, OP_NODE_DIV);
     } else if (node->type == AST_TYPE_OR) {
-        return binary_operation(node, OP_NODE_TYPE_OR);
+        return binary_operation(node, OP_NODE_OR);
     } else if (node->type == AST_TYPE_AND) {
-        return binary_operation(node, OP_NODE_TYPE_AND);
+        return binary_operation(node, OP_NODE_AND);
     } else if (node->type == AST_TYPE_BREAK) {
         return break_(node);
     } else if (node->type == AST_TYPE_RETURN) {
