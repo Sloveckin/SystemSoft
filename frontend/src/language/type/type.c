@@ -11,6 +11,8 @@ const char* type_to_string[] = {
     "ulong",
     "string",
     "char",
+    "short",
+    "ushort",
 };
 
 bool types_suitable(const struct Type* a, const struct Type* b)

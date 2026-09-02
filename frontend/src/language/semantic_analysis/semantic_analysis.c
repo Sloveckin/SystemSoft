@@ -124,6 +124,10 @@ struct Type* get_type(struct AstNode* node, Vector* errors, struct SemanticConte
 
     if (node == NULL) {
         result = init_basic_type(TYPE_KIND_VOID);
+    } else if (node->type == AST_TYPE_SHORT_TYPE) {
+        result = init_basic_type(TYPE_KIND_SHORT);
+    } else if (node->type == AST_TYPE_USHORT_TYPE) {
+        result = init_basic_type(TYPE_KIND_USHORT);
     } else if (node->type == AST_TYPE_INT_TYPE) {
         result =  init_basic_type(TYPE_KIND_INT);
     } else if (node->type == AST_TYPE_UINT_TYPE) {

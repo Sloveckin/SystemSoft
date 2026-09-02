@@ -29,6 +29,8 @@ void yyerror(struct AstNode*, char*);
 
 %type source
 
+%token <node> SHORT_TYPE
+%token <node> USHORT_TYPE
 %token <node> INT_TYPE
 %token <node> BOOL_TYPE
 %token <node> BYTE_TYPE
@@ -37,6 +39,7 @@ void yyerror(struct AstNode*, char*);
 %token <node> ULONG_TYPE
 %token <node> CHAR_TYPE
 %token <node> STRING_TYPE
+
 
 %left PLUS
 %left MINUS
@@ -246,6 +249,8 @@ array: type_ref BR_OPEN expr BR_CLOSE   {
 ;
 
 builtin:   INT_TYPE { $$ = $1; }
+        |  SHORT_TYPE { $$ = $1; }
+        |  USHORT_TYPE { $$ = $1; }
         |  BOOL_TYPE { $$ = $1; }
         |  BYTE_TYPE { $$ = $1; }
         |  UINT_TYPE { $$ = $1; }

@@ -5,7 +5,11 @@
 
 const char* mnemonic_to_str[] = {
     "addi",
+    "sb",
+    "sh",
+    "sw",
     "sd",
+    "ld",
 };
 
 struct ITypeInstruction* itype_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const int64_t imm)
@@ -25,9 +29,9 @@ struct ITypeInstruction* itype_instruction_init(const enum Mnemonic mnemonic, co
     return instr;
 }
 
-struct STypeInstruction* stype_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const int64_t offset)
+struct SLTypeInstruction* sltype_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const int64_t offset)
 {
-    struct STypeInstruction* instr = malloc(sizeof(struct STypeInstruction));
+    struct SLTypeInstruction* instr = malloc(sizeof(struct SLTypeInstruction));
     if (instr == NULL) {
         return NULL;
     }
@@ -47,17 +51,18 @@ int write_inscruction(struct Instruction* instruction, FILE* file)
     if (instruction->format == INSTRUCTION_FORMAT_I) {
         struct ITypeInstruction* i_instruction = (struct ITypeInstruction*) instruction;
         
-        int res = fprintf(file, "%s %s, %s, %lu", 
+        int res = fprintf(file, "\t%s %s, %s, %ld\n", 
             mnemonic_to_str[i_instruction->base.mnemonic], 
             register_type_to_str[i_instruction->r1], 
             register_type_to_str[i_instruction->r2], 
             i_instruction->imm);
+            
         if (res < 0) {
             return res;
         }
     } else if (instruction->format == INSTRUCTION_FORMAT_S) {
-        struct STypeInstruction* s_instruction = (struct STypeInstruction*) instruction;
-        int res = fprintf(file, "%s %s,%lu(%s)",
+        struct SLTypeInstruction* s_instruction = (struct SLTypeInstruction*) instruction;
+        int res = fprintf(file, "\t%s %s, %ld(%s)\n",
             mnemonic_to_str[s_instruction->base.mnemonic],
             register_type_to_str[s_instruction->r1],
             s_instruction->offset,

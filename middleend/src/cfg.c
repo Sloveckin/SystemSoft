@@ -140,8 +140,19 @@ static char* get_text_from_type(struct AstNode* node)
             return NULL;
         }
         strcpy(text, "string");
-    } 
-    else {
+    } else if (node->type == AST_TYPE_SHORT_TYPE) {
+        text = malloc(6 * sizeof(char));
+        if (text == NULL) {
+            return NULL;
+        }
+        strcpy(text, "short");
+    } else if (node->type == AST_TYPE_USHORT_TYPE) {
+        text = malloc(7 * sizeof(char));
+        if (text == NULL) {
+            return NULL;
+        }
+        strcpy(text, "ushort");
+    } else {
         assert(0);
     }
 
@@ -289,7 +300,9 @@ static char* get_text(struct AstNode* node)
     if (node->type == AST_TYPE_IDENTIFIER_LIST
     ||  node->type == AST_TYPE_EXPR_LIST) {
         return get_text_from_identifier_list(node);
-    } else if (node->type == AST_TYPE_INT_TYPE
+    } else if (node->type == AST_TYPE_SHORT_TYPE
+            || node->type == AST_TYPE_USHORT_TYPE
+            || node->type == AST_TYPE_INT_TYPE
             || node->type == AST_TYPE_BOOL_TYPE
             || node->type == AST_TYPE_LONG_TYPE
             || node->type == AST_TYPE_UINT_TYPE

@@ -55,7 +55,6 @@ int program_generate_asm(struct Program* program)
 
         struct Function** pointer = program->functions_ptr.buffer[i].value;
         struct Function* function = *pointer;
-        
 
         struct RiscVContext* ctx = malloc(sizeof(struct RiscVContext));
         if (ctx == NULL) {
@@ -68,7 +67,7 @@ int program_generate_asm(struct Program* program)
             return err;
         }
 
-        err = risc_v_generate_asm(function->cfg, ctx);
+        err = risc_v_generate_asm(function->signature.name, function->cfg, ctx);
         if (err) {
             risc_v_context_free(ctx);
             return err;

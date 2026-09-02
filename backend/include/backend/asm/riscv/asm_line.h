@@ -5,15 +5,19 @@
 
 enum RiscVLineType {
     LINE_TYPE_INSTRUCTION,
+    LINE_TYPE_LABEL,
 };
 
 struct RiscVLine {
     enum RiscVLineType type;
     union {
         struct Instruction* instruction;
+        char* text;
     };
 };
 
 void riscv_line_free(void* value);
+
+int write_riscv_line(const struct RiscVLine* line, FILE* file);
 
 #endif

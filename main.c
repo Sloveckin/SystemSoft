@@ -2,6 +2,9 @@
 #include <malloc.h>
 
 #include "ast/ast_node.h"
+#include "backend/asm/riscv/asm_instruction.h"
+#include "backend/asm/riscv/asm_line.h"
+#include "colc/linked_list.h"
 #include "dgml/from_cfg.h"
 
 #include "language/common/signature.h"
@@ -130,6 +133,16 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
         if (file == NULL) {
             return -1;
         }
+
+        LinkedListNode* cur_node = linked_head(&function->riscv_context->instruction_list);
+        while (cur_node != NULL) {
+            struct RiscVLine *line = cur_node->memory;
+            int err = write_riscv_line(line, file);
+            if (err != 0) {
+                return err;
+            }
+            cur_node = cur_node->next;
+        }
         
     }
     return 0;
@@ -156,7 +169,7 @@ static int handle_file(const CString* file_name, const bool print_ast, const boo
             return err;
         }
     }
-
+ 
     struct AstNode** source_item_nodes = vector_get(&root->children, 0);
     if (*source_item_nodes == NULL) {
         ast_node_destructor(&root);

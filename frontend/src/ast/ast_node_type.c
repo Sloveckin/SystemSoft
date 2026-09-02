@@ -50,4 +50,6 @@ const char* ast_type_to_string[] = {
     "IDENTIFIER_LIST",
     "ARRAY",
     "RETURN",
+    "SHORT",
+    "USHORT"
 };

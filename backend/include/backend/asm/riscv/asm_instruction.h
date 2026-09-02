@@ -7,7 +7,11 @@
 
 enum Mnemonic {
     MN_ADDI = 0,
-    MN_SD = 1,
+    MN_SB = 1,
+    MN_SH = 2,
+    MN_SW = 3,
+    MN_SD = 4,
+    MN_LD = 5,
 };
 
 enum InstructionFormat {
@@ -28,7 +32,7 @@ struct ITypeInstruction {
     int64_t imm;
 };
 
-struct STypeInstruction {
+struct SLTypeInstruction {
     struct Instruction base;
 
     enum RegisterType r1;
@@ -40,7 +44,7 @@ extern const char* mnemonic_to_str[];
 
 struct ITypeInstruction* itype_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const int64_t imm);
 
-struct STypeInstruction* stype_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const int64_t offset);
+struct SLTypeInstruction* sltype_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const int64_t offset);
 
 int write_inscruction(struct Instruction* instruction, FILE* file);
 

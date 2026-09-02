@@ -14,6 +14,8 @@ enum TypeKind {
     TYPE_KIND_STRING = 6,
     TYPE_KIND_ARRAY = 7,
     TYPE_KIND_CHAR = 8,
+    TYPE_KIND_SHORT = 9,
+    TYPE_KIND_USHORT = 10,
 };
 
 struct Type {

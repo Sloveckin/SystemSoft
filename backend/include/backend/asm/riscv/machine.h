@@ -2,7 +2,6 @@
 #define RISCV_MACHINE_H
 
 #include "backend/asm/riscv/register.h"
-#include "colc/vector.h"
 
 #define REGISTER_AMOUNT 32
 

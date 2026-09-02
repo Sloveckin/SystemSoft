@@ -152,7 +152,11 @@ static struct OperationTreeNode* type(struct AstNode* node)
         op_type = OP_NODE_TYPE_STRING;
     } else if (node->type == AST_TYPE_ARRAY) {
         op_type = OP_NODE_TYPE_ARRAY;
-    } else {
+    } else if (node->type == AST_TYPE_SHORT_TYPE) {
+        op_type = OP_NODE_TYPE_SHORT;
+    } else if (node->type == AST_TYPE_USHORT_TYPE) {
+        op_type = OP_NODE_TYPE_USHORT;
+    }  else {
         assert(0);
     }
 
@@ -640,7 +644,9 @@ struct OperationTreeNode* operation_tree_create(struct AstNode* node)
         return variables_creation(node); 
     } else if (node->type == AST_TYPE_IDENTIFIER_LIST) {
         return identifier_list(node);
-    } else if (node->type == AST_TYPE_INT_TYPE
+    } else if (node->type == AST_TYPE_SHORT_TYPE
+            || node->type == AST_TYPE_USHORT_TYPE
+            || node->type == AST_TYPE_INT_TYPE
             || node->type == AST_TYPE_UINT_TYPE
             || node->type == AST_TYPE_LONG_TYPE
             || node->type == AST_TYPE_ULONG_TYPE

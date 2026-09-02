@@ -12,9 +12,39 @@
 #include "colc/stack.h"
 #include "middleend/optree.h"
 
+#include <endian.h>
 #include <malloc.h>
 #include <assert.h>
 #include <stdlib.h>
+
+static size_t size_of_type(const enum OperationNodeType type) {
+    if (type == OP_NODE_TYPE_INT || type == OP_NODE_TYPE_UINT) {
+        return INT_SIZE;
+    } else if (type == OP_NODE_TYPE_SHORT || type == OP_NODE_TYPE_USHORT) {
+        return SHORT_SIZE;
+    } else if (type == OP_NODE_TYPE_LONG || type == OP_NODE_TYPE_ULONG) {
+        return LONG_SIZE;
+    } else if (type == OP_NODE_TYPE_BOOL) {
+        return BOOL_SIZE;
+    }
+
+    assert (0);
+}
+
+static enum Mnemonic store_mnemonic_by_size(const size_t size)
+{
+    if (size == BOOL_SIZE) {
+        return MN_SB;
+    } else if (size == SHORT_SIZE) {
+        return MN_SH;
+    } else if (size == INT_SIZE) {
+        return MN_SW;
+    } else if (size == LONG_SIZE) {
+        return MN_SD;
+    }
+
+    assert(0);
+}
 
 static int load_const(struct OperationTreeNode* node, struct RiscVContext* ctx)
 {
@@ -36,6 +66,9 @@ static int load_const(struct OperationTreeNode* node, struct RiscVContext* ctx)
     }
 
     struct ITypeInstruction* addi = itype_instruction_init(MN_ADDI, ZERO, reg->type, imm);
+    if (addi == NULL) {
+        return -1;
+    }
 
     struct RiscVLine line = {
         .type = LINE_TYPE_INSTRUCTION,
@@ -44,11 +77,13 @@ static int load_const(struct OperationTreeNode* node, struct RiscVContext* ctx)
 
     int err = linked_push_back(&ctx->instruction_list, &line);
     if (err != 0) {
+        free(addi);
         return err;
     }
 
     err = stack_push(&ctx->register_stack, &reg->type);
     if (err != 0) {
+        free(addi);
         return err;
     }
 
@@ -80,7 +115,8 @@ static int store(struct OperationTreeNode* node, struct RiscVContext* ctx)
     stack_pop(&ctx->register_stack);
     ctx->machine.registers[*reg].used = false;
 
-    struct STypeInstruction* save_instruction = stype_instruction_init(MN_SD, *reg, S0, recoring->offset);
+    const enum Mnemonic store_mnemonic = store_mnemonic_by_size(recoring->size);
+    struct SLTypeInstruction* save_instruction = sltype_instruction_init(store_mnemonic, *reg, REGISTER_VARIABLE_MAPPING, recoring->offset);
     if (save_instruction == NULL) {
         cstring_free(&variable_name);
         return -1;
@@ -98,16 +134,6 @@ static int store(struct OperationTreeNode* node, struct RiscVContext* ctx)
 
     cstring_free(&variable_name);
     return 0;
-}
-
-static size_t size_of_type(enum OperationNodeType type) {
-    if (type == OP_NODE_TYPE_INT || type == OP_NODE_TYPE_UINT) {
-        return 4;
-    } else if (type == OP_NODE_TYPE_LONG || type == OP_NODE_TYPE_ULONG) {
-        return 8;
-    }
-
-    assert (0);
 }
 
 static int generate_creation_variable(struct OperationTreeNode* node, struct RiscVContext* ctx)
@@ -199,14 +225,137 @@ static int cfg_generate(struct CfgNode* cfg_node, struct RiscVContext* ctx)
     return cfg_generate(cfg_node->condition, ctx);
 }
 
-static int generate_prolog(struct RiscVContext* ctx, const size_t amount_needed_bytes)
+static int generate_prolog(struct RiscVContext* ctx)
 {
-    assert(0);
+    struct SLTypeInstruction* save_ra = sltype_instruction_init(MN_SD, RA, SP, ctx->stack_size);
+    if (save_ra == NULL) {
+        return -1;
+    }
+
+    struct Register* ra_register = &ctx->machine.registers[RA];
+    ra_register->used = true;
+    ra_register->offset = ctx->stack_size;
+
+    const struct RiscVLine save_ra_line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) save_ra,
+    };
+
+    int err = linked_push_front(&ctx->instruction_list, &save_ra_line);
+    if (err != 0) {
+        free(save_ra);
+        return err;
+    }
+
+    ctx->stack_size += 8;
+    struct ITypeInstruction* add_stack_frame = itype_instruction_init(MN_ADDI, SP,  SP, -ctx->stack_size);
+    if  (add_stack_frame == NULL) {
+        free(save_ra);
+        return -1;
+    }
+
+    const struct RiscVLine grow_stack_line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) add_stack_frame, 
+    };
+
+    err = linked_push_front(&ctx->instruction_list, &grow_stack_line);
+    if (err != 0) {
+        free(save_ra);
+        free(add_stack_frame);
+        return -1;
+    }
+
+    return 0;
 }
 
-int risc_v_generate_asm(struct CfgNode* cfg_node, struct RiscVContext* ctx)
+static int generate_lable(const char* function_name, struct RiscVContext* ctx)
 {
-    return cfg_generate(cfg_node, ctx);
+    const size_t label_text_length = strlen(function_name) + 1;
+    char* label_text = malloc(label_text_length * sizeof(char));
+    if (label_text == NULL) {
+        return -1;
+    }
+    strcpy(label_text, function_name);
+
+    const struct RiscVLine lable_line = {
+        .type = LINE_TYPE_LABEL,
+        .text = label_text,
+    };
+
+    int err = linked_push_front(&ctx->instruction_list, &lable_line);
+    if (err != 0) {
+        free(label_text);
+        return err;
+    }
+
+    return 0;
+}
+
+static int generate_epilog(struct RiscVContext* ctx)
+{
+    struct Register* ra_register = &ctx->machine.registers[RA];
+    struct SLTypeInstruction* load_ra = sltype_instruction_init(MN_LD, RA, SP, ra_register->offset);
+    if (load_ra == NULL) {
+        return -1;
+    }
+    ra_register->used = false;
+
+    const struct RiscVLine load_ra_line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) load_ra,
+    };
+
+    int err = linked_push_back(&ctx->instruction_list, &load_ra_line);
+    if (err != 0) {
+        free(load_ra);
+        return err;
+    }
+
+    struct ITypeInstruction* addi = itype_instruction_init(MN_ADDI, SP, SP, ctx->stack_size);
+    if (addi == NULL) {
+        free(load_ra);
+        return -1;
+    }
+
+     const struct RiscVLine addi_line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) addi,
+    };
+
+    err = linked_push_back(&ctx->instruction_list, &addi_line);
+    if (err != 0) {
+        free(addi);
+        free(load_ra);
+        return -1;
+    }
+    
+    return 0;
+}
+
+int risc_v_generate_asm(const char* funciton_name, struct CfgNode* cfg_node, struct RiscVContext* ctx)
+{
+    int err = cfg_generate(cfg_node, ctx);
+    if (err != 0) {
+        return err;
+    }
+
+    err = generate_prolog(ctx);
+    if (err != 0) {
+        return err;
+    }
+
+    err = generate_lable(funciton_name, ctx);
+    if (err != 0) {
+        return err;
+    }
+
+    err = generate_epilog(ctx);
+    if (err != 0) {
+        return err;
+    }
+
+    return 0;
 }
 
 int risc_v_context_init(struct RiscVContext* ctx)

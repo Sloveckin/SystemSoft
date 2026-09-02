@@ -61,12 +61,6 @@ else { return ELSE; }
 end  { return END; }
 
 
-int {
-    yylval.node = malloc(sizeof(struct AstNode));
-    ast_node_init(yylval.node, AST_TYPE_INT_TYPE);
-    return INT_TYPE;
-}
-
 bool {
     yylval.node = malloc(sizeof(struct AstNode));
     ast_node_init(yylval.node, AST_TYPE_BOOL_TYPE);
@@ -77,6 +71,24 @@ byte {
     yylval.node = malloc(sizeof(struct AstNode));
     ast_node_init(yylval.node, AST_TYPE_BYTE_TYPE);
     return BYTE_TYPE;
+}
+
+short {
+    yylval.node = malloc(sizeof(struct AstNode));
+    ast_node_init(yylval.node, AST_TYPE_SHORT_TYPE);
+    return SHORT_TYPE;
+}
+
+ushort {
+    yylval.node = malloc(sizeof(struct AstNode));
+    ast_node_init(yylval.node, AST_TYPE_USHORT_TYPE);
+    return USHORT_TYPE;
+}
+
+int {
+    yylval.node = malloc(sizeof(struct AstNode));
+    ast_node_init(yylval.node, AST_TYPE_INT_TYPE);
+    return INT_TYPE;
 }
 
 uint {
