@@ -15,10 +15,13 @@
 
 #define REGISTER_VARIABLE_MAPPING SP
 
+#define RETURN_LABEL_LENGTH 7
+
 struct RiscVContext {
     struct RiscVMachine machine;
     Stack register_stack;
     LinkedList instruction_list;
+    LinkedList return_instruction_list;
     Map stack_recording;
     size_t stack_size;
 };
@@ -28,6 +31,8 @@ int risc_v_context_init(struct RiscVContext* ctx);
 void risc_v_context_free(struct RiscVContext* ctx);
 
 int risc_v_generate_asm(const char* function_name, struct CfgNode* cfg_node, struct RiscVContext* ctx);
+
+int generate_start_position(struct RiscVContext* ctx);
 
 
 #endif

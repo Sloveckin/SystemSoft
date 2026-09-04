@@ -682,6 +682,8 @@ struct OperationTreeNode* operation_tree_create(struct AstNode* node)
         return unary(node, OP_NODE_UNARY_MINUS);
     } else if (node->type == AST_TYPE_UNARY_PLUS) {
         return unary(node, OP_NODE_UNARY_PLUS);
+    } else if (node->type == AST_TYPE_RETURN) {
+        return return_(node);
     }
 
     // Not expected branch

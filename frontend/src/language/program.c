@@ -1,7 +1,5 @@
 #include "language/program.h"
 
-#include "backend/asm/riscv/machine.h"
-#include "colc/vector.h"
 #include "language/common/function.h"
 #include "colc/cstring.h"
 #include "language/common/signature.h"
@@ -67,10 +65,18 @@ int program_generate_asm(struct Program* program)
             return err;
         }
 
+        
         err = risc_v_generate_asm(function->signature.name, function->cfg, ctx);
         if (err) {
             risc_v_context_free(ctx);
             return err;
+        }
+
+        if (strcmp(function->signature.name, "main") == 0) {
+            err = generate_start_position(ctx);
+            if (err != 0) {
+                return err;
+            }
         }
 
         function->riscv_context = ctx;

@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/clake",
-            "args": ["/home/slava/itmo/SystemSoft/files/input1.txt", "--ast-graph", "--control-flow-graph"],
+            "args": ["/home/slava/itmo/SystemSoft/files/main.kr", "--ast-graph", "--control-flow-graph"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [

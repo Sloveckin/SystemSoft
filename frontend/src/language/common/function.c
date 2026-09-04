@@ -32,7 +32,9 @@ int function_init(struct Function* function, struct Program* program, struct Ast
 
 void function_free(struct Function* function)
 {
-    risc_v_context_free(function->riscv_context);
+    if (function->riscv_context != NULL) {
+        risc_v_context_free(function->riscv_context);
+    }
     free(function->riscv_context);
     signature_free(&function->signature);
     cfg_context_free(&function->cfg_context);

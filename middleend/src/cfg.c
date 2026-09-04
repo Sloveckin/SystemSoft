@@ -639,6 +639,8 @@ static struct CfgNode* return_(struct AstNode* node, struct CfgContext* ctx)
     }
     free(text);
 
+    cfg_node->operation_node = operation_tree_create(node);
+
     return cfg_node; 
 }
 

@@ -2,7 +2,6 @@
 #include <malloc.h>
 
 #include "ast/ast_node.h"
-#include "backend/asm/riscv/asm_instruction.h"
 #include "backend/asm/riscv/asm_line.h"
 #include "colc/linked_list.h"
 #include "dgml/from_cfg.h"
@@ -19,7 +18,7 @@
 #include "user_input.h"
 #include "dgml/from_ast.h"
 
-static FILE* create_file(const char* file_name, const char* extenstion)
+static FILE* create_file(const char* file_name, const char* extenstion, const char* mode)
 {
     const size_t file_name_len = strlen(file_name) + strlen(extenstion) + 2;
     char* full_file_name = malloc(file_name_len * sizeof(char));
@@ -29,7 +28,7 @@ static FILE* create_file(const char* file_name, const char* extenstion)
     }
     sprintf(full_file_name, "%s.%s", file_name, extenstion);
 
-    FILE* file = fopen(full_file_name, "w");
+    FILE* file = fopen(full_file_name, mode);
     if (file == NULL) {
         printf("Error while creating %s.%s file\n", file_name, extenstion);
         free(full_file_name);
@@ -42,12 +41,12 @@ static FILE* create_file(const char* file_name, const char* extenstion)
 
 static FILE* create_dgml_file(const char* file_name)
 {
-    return create_file(file_name, "dgml");
+    return create_file(file_name, "dgml", "w");
 }
 
 static FILE* create_asm_file(const char* file_name)
 {
-    return create_file(file_name, "asm");
+    return create_file(file_name, "s", "w");
 }
 
 static int draw_ast_graph(struct AstNode* ast, const char* file_name)
@@ -134,6 +133,7 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
             return -1;
         }
 
+        // Write instructions from main list
         LinkedListNode* cur_node = linked_head(&function->riscv_context->instruction_list);
         while (cur_node != NULL) {
             struct RiscVLine *line = cur_node->memory;
@@ -143,7 +143,21 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
             }
             cur_node = cur_node->next;
         }
-        
+
+        // Write instructions from return block
+        cur_node = linked_head(&function->riscv_context->return_instruction_list);
+        while (cur_node != 0) {
+            struct RiscVLine* line = cur_node->memory;
+            int err = write_riscv_line(line, file);
+            if (err != 0) {
+                return err;
+            }
+            cur_node = cur_node->next;
+        }
+        int res = fputs("\n", file);
+        if (res < 0) {
+            return res;
+        }
     }
     return 0;
 }
