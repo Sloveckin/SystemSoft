@@ -46,7 +46,7 @@ static FILE* create_dgml_file(const char* file_name)
 
 static FILE* create_asm_file(const char* file_name)
 {
-    return create_file(file_name, "s", "w");
+    return create_file(file_name, "s", "wa");
 }
 
 static int draw_ast_graph(struct AstNode* ast, const char* file_name)
@@ -120,6 +120,11 @@ static int draw_all_control_flow_graph(struct Program* program, const char* file
 
 static int write_all_into_asm_file(struct Program* program, const char* file_name) 
 {
+    FILE* file = create_asm_file(file_name);
+    if (file == NULL) {
+        return -1;
+    }
+
     for (size_t i = 0; i < program->functions_ptr.capacity; i++) {
         if (program->functions_ptr.buffer[i].key == NULL) {
             continue;
@@ -127,11 +132,6 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
 
         struct Function** pointer = program->functions_ptr.buffer[i].value;
         struct Function* function = *pointer;
-
-        FILE* file = create_asm_file(file_name);
-        if (file == NULL) {
-            return -1;
-        }
 
         // Write instructions from main list
         LinkedListNode* cur_node = linked_head(&function->riscv_context->instruction_list);

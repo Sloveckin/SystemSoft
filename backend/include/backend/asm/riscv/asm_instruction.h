@@ -14,6 +14,9 @@ enum Mnemonic {
     MN_LD = 5,
     MN_JAL = 6,
     MN_JALR = 7,
+    MN_LB = 8,
+    MN_LH = 9,
+    MN_LW = 10,
 };
 
 enum InstructionFormat {

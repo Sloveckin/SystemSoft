@@ -16,6 +16,7 @@
 #include <endian.h>
 #include <malloc.h>
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 static size_t size_of_type(const enum OperationNodeType type) {
@@ -42,6 +43,21 @@ static enum Mnemonic store_mnemonic_by_size(const size_t size)
         return MN_SW;
     } else if (size == LONG_SIZE) {
         return MN_SD;
+    }
+
+    assert(0);
+}
+
+static enum Mnemonic load_mnemonic_by_size(const size_t size)
+{
+    if (size == BOOL_SIZE) {
+        return MN_LB;
+    } else if (size == SHORT_SIZE) {
+        return MN_LH;
+    } else if (size == INT_SIZE) {
+        return MN_LW;
+    } else if (size == LONG_SIZE) {
+        return MN_LD;
     }
 
     assert(0);
@@ -91,10 +107,60 @@ static int load_const(struct OperationTreeNode* node, struct RiscVContext* ctx)
     return 0;
 }
 
+static int load_variable(const struct OperationTreeNode* node, struct RiscVContext* ctx)
+{
+    struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
+    if (reg == NULL) {
+        puts("Couldn't find free register, please rewrite your code");
+        return -1;
+    }
+    reg->used = true;
+
+    CString variable_name;
+    int err = cstring_init(&variable_name, node->argument);
+    if (err != 0) {
+        return err;
+    }
+
+    const struct StackRecording* stack_recording = map_get(&ctx->stack_recording, &variable_name);
+    const enum Mnemonic mn = load_mnemonic_by_size(stack_recording->size);
+
+    const struct SLTypeInstruction* load_instr = sltype_instruction_init(mn, reg->type, REGISTER_VARIABLE_MAPPING, stack_recording->offset);
+    if (load_instr == NULL) {
+        cstring_free(&variable_name);
+        return -1;
+    }
+
+    const struct RiscVLine line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) load_instr,
+    };
+
+    err = linked_push_back(&ctx->instruction_list, &line);
+    if (err != 0) {
+        free_instruction((struct Instruction*) load_instr);
+        cstring_free(&variable_name);
+        return -1;
+    }
+
+    err = stack_push(&ctx->register_stack, &reg->type);
+    if (err != 0) {
+        free_instruction((struct Instruction*) load_instr);
+        cstring_free(&variable_name);
+        return -1;
+    }
+
+    cstring_free(&variable_name);
+
+    return 0;
+}
+
 static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
 {
     if (node->type == OP_NODE_CONST) {
         return load_const(node, ctx);
+    } else if (node->type == OP_NODE_LOAD) {
+        return load_variable(node, ctx);
     } else {
         assert(0);
     }
