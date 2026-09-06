@@ -254,7 +254,10 @@ static int generate_assigment(struct OperationTreeNode* node, struct RiscVContex
         return err;
     }
 
-    
+    err = store(left_node, ctx);
+    if (err != 0) {
+        return err;
+    }
 
     return 0;
 }
