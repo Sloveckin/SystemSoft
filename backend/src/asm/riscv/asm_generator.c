@@ -254,6 +254,61 @@ static int generate_function_call(struct OperationTreeNode* node, struct RiscVCo
     return 0;
 }
 
+static int load_binary(const enum Mnemonic mnemonic, struct OperationTreeNode* node, struct RiscVContext* ctx)
+{
+    struct OperationTreeNode** pointer = vector_get(&node->children, 0);
+    struct OperationTreeNode* left = *pointer;
+
+    pointer = vector_get(&node->children, 1);
+    struct OperationTreeNode* right = *pointer;
+
+    int err = load(left, ctx);
+    if (err != 0) {
+        return err;
+    }
+
+    err = load(right, ctx);
+    if (err != 0) {
+        return err;
+    }
+
+    const enum RegisterType* reg1 = stack_top(&ctx->register_stack);
+    stack_pop(&ctx->register_stack);
+    const enum RegisterType* reg2 = stack_top(&ctx->register_stack);
+    stack_pop(&ctx->register_stack);
+    
+
+    struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
+    if (reg == NULL) {
+        puts("No allowed temp registers. Please rewrite your code");
+        assert(0);
+    }
+
+    struct R3Instruction* r3 = r3_instruction_init(MN_ADD, reg->type, *reg1, *reg2);
+    if (r3 == NULL) {
+        return -1;
+    }
+
+    err = stack_push(&ctx->register_stack, &reg->type);
+    if (err != 0) {
+        return err;
+    }
+
+    const struct RiscVLine line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction* ) r3,
+    };
+
+    err = linked_push_back(&ctx->instruction_list, &line);
+    if (err != 0) {
+        free(r3);
+        return err;
+    }
+
+
+    return 0;
+}
+
 static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
 {
     if (node->type == OP_NODE_CONST) {
@@ -262,6 +317,8 @@ static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
         return load_variable(node, ctx);
     } else if (node->type == OP_NODE_CALL_OR_INDEXER) {
         return generate_function_call(node, ctx);
+    } else if (node->type == OP_NODE_PLUS) {
+        return load_binary(MN_ADD, node, ctx);
     } else {
         assert(0);
     }

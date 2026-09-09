@@ -42,10 +42,10 @@ struct Register* riscv_machine_get_caller_save_reg(struct RiscVMachine* machine)
 
 struct Register* riscv_machine_get_temp_register(struct RiscVMachine* machine)
 {
-    struct Register* reg = get_register(machine, T1, T3);
+    struct Register* reg = get_register(machine, T1, T2);
     if (reg != NULL) {
         return reg;
     }
 
-    return get_register(machine, T4, T6);
+    return get_register(machine, T3, T6);
 }
