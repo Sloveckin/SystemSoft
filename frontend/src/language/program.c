@@ -1,6 +1,7 @@
 #include "language/program.h"
 
 #include "backend/asm/riscv/function_argument.h"
+#include "backend/asm/riscv/label_generator.h"
 #include "colc/object_info.h"
 #include "colc/vector.h"
 #include "language/common/function.h"
@@ -81,6 +82,9 @@ static int prepare_arguments(Vector* from, Vector* to)
 
 int program_generate_asm(struct Program* program)
 {
+    struct LabelGenerator label_generator;
+    label_generator_init(&label_generator);
+
     for (size_t i = 0; i < program->functions_ptr.capacity; i++) {
         if (program->functions_ptr.buffer[i].key == NULL) {
             continue;
@@ -94,7 +98,7 @@ int program_generate_asm(struct Program* program)
             return -1;
         }
 
-        int err = risc_v_context_init(ctx);
+        int err = risc_v_context_init(ctx, &label_generator);
         if (err != 0) {
             risc_v_context_free(ctx);
             return err;

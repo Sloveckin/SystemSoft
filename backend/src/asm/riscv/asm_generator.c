@@ -4,6 +4,7 @@
 #include "backend/asm/riscv/asm_instruction.h"
 #include "backend/asm/riscv/asm_line.h"
 #include "backend/asm/riscv/function_argument.h"
+#include "backend/asm/riscv/label_generator.h"
 #include "backend/asm/riscv/machine.h"
 #include "backend/asm/riscv/register.h"
 #include "backend/asm/riscv/stack_recording.h"
@@ -430,7 +431,7 @@ static int cfg_generate(struct CfgNode* cfg_node, struct RiscVContext* ctx)
 
 static int generate_jump_into_return_block(struct RiscVContext* ctx)
 {
-    struct JalInstruction* jmp = jal_instructoin_init(ZERO, "return");
+    struct JalInstruction* jmp = jal_instructoin_init(ZERO, ctx->label_generator->return_buffer);
     if (jmp == NULL) {
         return -1;
     }
@@ -519,12 +520,13 @@ static int generate_lable(const char* function_name, struct RiscVContext* ctx)
 
 static int generate_epilog(struct RiscVContext* ctx)
 {
-
-    char* label_text = malloc(RETURN_LABEL_LENGTH * sizeof(char));
+    const size_t label_length = strlen(ctx->label_generator->return_buffer) + 1;
+    char* label_text = malloc(label_length * sizeof(char));
     if (label_text == NULL) {
         return -1;
     }
-    sprintf(label_text, "return");
+    strcpy(label_text, ctx->label_generator->return_buffer);
+    label_return_update(ctx->label_generator);
 
     const struct RiscVLine return_label = {
         .type = LINE_TYPE_LABEL,
@@ -710,9 +712,11 @@ int generate_start_position(struct RiscVContext* ctx)
     return 0;
 }
 
-int risc_v_context_init(struct RiscVContext* ctx)
+int risc_v_context_init(struct RiscVContext* ctx, struct LabelGenerator* label_generator)
 {
     riscv_machine_init(&ctx->machine);
+
+    ctx->label_generator = label_generator;
 
     const ObjectInfo register_info = {
         .size = sizeof(enum RegisterType),

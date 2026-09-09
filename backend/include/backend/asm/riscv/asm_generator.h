@@ -1,6 +1,7 @@
 #ifndef RISC_V_ASM_GENERATOR
 #define RISC_V_ASM_GENERATOR
 
+#include "backend/asm/riscv/label_generator.h"
 #include "backend/asm/riscv/machine.h"
 
 #include "colc/map.h"
@@ -19,6 +20,7 @@
 
 struct RiscVContext {
     struct RiscVMachine machine;
+    struct LabelGenerator* label_generator;
     Stack register_stack;
     LinkedList instruction_list;
     LinkedList return_instruction_list;
@@ -26,7 +28,7 @@ struct RiscVContext {
     size_t stack_size;
 };
 
-int risc_v_context_init(struct RiscVContext* ctx);
+int risc_v_context_init(struct RiscVContext* ctx, struct LabelGenerator* label_generator);
 
 void risc_v_context_free(struct RiscVContext* ctx);
 
