@@ -50,6 +50,7 @@ int signature_init(struct Signature* signature, struct AstNode* node, struct Pro
 
     int err = semantic_analysis_context_init(signature->semantic_context, program, signature);
     if (err != 0) {
+        free(signature);
         free(signature->semantic_context);
         return -1;
     }

@@ -18,6 +18,8 @@ const char* mnemonic_to_str[] = {
     "lb",
     "lh",
     "lw",
+    "add",
+    "call",
 };
 
 struct ITypeInstruction* itype_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const int64_t imm)
@@ -60,7 +62,7 @@ int write_inscruction(struct Instruction* instruction, FILE* file)
 {
     int res = 0;
     if (instruction->format == INSTRUCTION_FORMAT_I) {
-        struct ITypeInstruction* i_instruction = (struct ITypeInstruction*) instruction;
+        const struct ITypeInstruction* i_instruction = (struct ITypeInstruction*) instruction;
         
         res = fprintf(file, "\t%s %s, %s, %ld\n", 
             mnemonic_to_str[i_instruction->base.mnemonic], 
@@ -68,7 +70,7 @@ int write_inscruction(struct Instruction* instruction, FILE* file)
             register_type_to_str[i_instruction->r2], 
             i_instruction->imm);
     } else if (instruction->format == INSTRUCTION_FORMAT_S) {
-        struct SLTypeInstruction* s_instruction = (struct SLTypeInstruction*) instruction;
+        const struct SLTypeInstruction* s_instruction = (struct SLTypeInstruction*) instruction;
         int res = fprintf(file, "\t%s %s, %ld(%s)\n",
             mnemonic_to_str[s_instruction->base.mnemonic],
             register_type_to_str[s_instruction->r1],
@@ -76,8 +78,19 @@ int write_inscruction(struct Instruction* instruction, FILE* file)
             register_type_to_str[s_instruction->r2]
         );
     } else if (instruction->format == INSTCURTION_FORMAT_JAL) {
-        struct JalInstruction* jal = (struct JalInstruction*) instruction;
+        const struct JalInstruction* jal = (struct JalInstruction*) instruction;
         res = fprintf(file, "\t%s %s, %s\n", mnemonic_to_str[jal->base.mnemonic], register_type_to_str[jal->reg], jal->label);
+    } else if (instruction->format == INSTRUCTION_FORMAT_CALL) {
+        const struct Call* call = (struct Call*) instruction;
+        res = fprintf(file, "\tcall %s\n", call->function_name);
+    } else if (instruction->format == INSTRUCTION_FORMAT_R3) {
+        const struct R3Instruction* r3_instr = (struct R3Instruction*) instruction;
+         int res = fprintf(file, "\t%s %s, %s, %s\n",
+            mnemonic_to_str[r3_instr->base.mnemonic],
+            register_type_to_str[r3_instr->reg1],
+            register_type_to_str[r3_instr->reg2],
+            register_type_to_str[r3_instr->reg3]
+        );
     } else {
         assert(0);
     }
@@ -89,7 +102,8 @@ int write_inscruction(struct Instruction* instruction, FILE* file)
     return 0;
 }
 
-static void jal_instruction_free(struct Instruction* instr) {
+static void jal_instruction_free(struct Instruction* instr) 
+{
     free(((struct JalInstruction*)instr)->label);
 }
 
@@ -114,6 +128,49 @@ struct JalInstruction* jal_instructoin_init(const enum RegisterType reg, const c
     instr->reg = reg;
 
     return instr;
+}
+
+struct R3Instruction* r3_instruction_init(const enum Mnemonic mn, const enum RegisterType r1, const enum RegisterType r2, const enum RegisterType r3)
+{
+    struct R3Instruction* instr = malloc(sizeof(struct R3Instruction));
+    if (instr == NULL) {
+        return NULL;
+    }
+
+    instr->base.free_function = NULL;
+    instr->base.format = INSTRUCTION_FORMAT_R3;
+    instr->base.mnemonic = mn;
+    instr->reg1 = r1;
+    instr->reg2 = r2;
+    instr->reg3 = r3;
+
+    return instr;
+}
+
+static void call_instruction_free(struct Instruction* call) 
+{
+    free(((struct Call*)call)->function_name);
+}
+
+struct Call* call_instruction_init(const char* name)
+{
+    struct Call* call = malloc(sizeof(struct Call));
+    if (call == NULL) {
+        return NULL;
+    }
+
+    const size_t name_length = strlen(name) + 1;
+    call->function_name = malloc(name_length * sizeof(char));
+    if (call->function_name == NULL) {
+        free(call);
+        return NULL;
+    }
+    
+    strcpy(call->function_name, name);
+    call->base.format = INSTRUCTION_FORMAT_CALL;
+    call->base.free_function = call_instruction_free;
+
+    return call;
 }
 
 void free_instruction(struct Instruction* instr)

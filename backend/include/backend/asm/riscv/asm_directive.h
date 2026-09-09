@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 enum DirectiveType {
-    GLOBAL
+    DIRECTIVE_TYPE_GLOBAL
 };
 
 struct Directive {

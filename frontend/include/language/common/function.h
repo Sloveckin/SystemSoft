@@ -7,7 +7,6 @@
 #include "middleend/cfg_context.h"
 #include "signature.h"
 
-
 struct Function {
     struct Signature signature;
     struct AstNode* ast;

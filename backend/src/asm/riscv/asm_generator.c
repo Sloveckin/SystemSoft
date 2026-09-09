@@ -3,6 +3,7 @@
 #include "backend/asm/riscv/asm_directive.h"
 #include "backend/asm/riscv/asm_instruction.h"
 #include "backend/asm/riscv/asm_line.h"
+#include "backend/asm/riscv/function_argument.h"
 #include "backend/asm/riscv/machine.h"
 #include "backend/asm/riscv/register.h"
 #include "backend/asm/riscv/stack_recording.h"
@@ -11,6 +12,8 @@
 #include "colc/map.h"
 #include "colc/object_info.h"
 #include "colc/stack.h"
+#include "colc/vector.h"
+#include "middleend/cfg_node.h"
 #include "middleend/optree.h"
 
 #include <endian.h>
@@ -155,12 +158,109 @@ static int load_variable(const struct OperationTreeNode* node, struct RiscVConte
     return 0;
 }
 
+static int store_in_register(const enum RegisterType reg_to, struct RiscVContext* ctx)
+{
+    const enum RegisterType* reg_from = stack_top(&ctx->register_stack);
+    stack_pop(&ctx->register_stack);
+    ctx->machine.registers[*reg_from].used = false;
+
+    struct R3Instruction* r3 = r3_instruction_init(MN_ADD, reg_to, ZERO, *reg_from);
+    if (r3 == NULL) {
+        return -1;
+    }
+
+    const struct RiscVLine line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction* ) r3,
+    };
+
+    int err = linked_push_back(&ctx->instruction_list, &line);
+    if (err != 0) {
+        free(r3);
+        return err;
+    }
+
+    struct Register* a0_reg = &ctx->machine.registers[A0];
+    err = stack_push(&ctx->register_stack, &a0_reg->type);
+    if (err != 0) {
+        free(r3);
+        return err;
+    }
+
+    return 0;
+}
+
+static int load(struct OperationTreeNode* node, struct RiscVContext* ctx);
+
+static int generate_function_call(struct OperationTreeNode* node, struct RiscVContext* ctx)
+{
+    struct OperationTreeNode** pointer = vector_get(&node->children, 0);
+    struct OperationTreeNode* function_name = *pointer;
+
+    pointer = vector_get(&node->children, 1);
+    struct OperationTreeNode* args_list = *pointer;
+
+    for (size_t i = 0; i < args_list->children.size; i++) {
+        pointer = vector_get(&args_list->children, i);
+        int err = load(*pointer, ctx);
+        if (err != 0) {
+            return err;
+        }
+        
+        err = store_in_register(A0 + i, ctx);
+        if (err != 0) {
+            return err;
+        }
+
+    }
+
+    struct Call* call = call_instruction_init(function_name->argument);
+    if (call == NULL) {
+        return -1;
+    }
+
+    const struct RiscVLine line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction* ) call,
+    };
+
+    int err = linked_push_back(&ctx->instruction_list, &line);
+    if (err != 0) {
+        free_instruction((struct Instruction*) call);
+        return -1;
+    }   
+
+    struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
+    if (reg == NULL) {
+        puts("Couldn't find free register, please rewrite your code");
+        free_instruction((struct Instruction*) call);
+        return -1;
+    }
+    reg->used = true;
+
+    err = stack_push(&ctx->register_stack, &reg->type);
+    if (err != 0) {
+        free_instruction((struct Instruction*) call);
+        return err;
+    }
+
+    err = store_in_register(reg->type, ctx);
+    if (err != 0) {
+        free_instruction((struct Instruction*) call);
+        return -1;
+    }
+
+    return 0;
+}
+
 static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
 {
     if (node->type == OP_NODE_CONST) {
         return load_const(node, ctx);
     } else if (node->type == OP_NODE_LOAD) {
         return load_variable(node, ctx);
+    } else if (node->type == OP_NODE_CALL_OR_INDEXER) {
+        return generate_function_call(node, ctx);
     } else {
         assert(0);
     }
@@ -189,7 +289,7 @@ static int store(struct OperationTreeNode* node, struct RiscVContext* ctx)
         return -1;
     }
 
-    struct RiscVLine line = {
+    const struct RiscVLine line = {
         .type = LINE_TYPE_INSTRUCTION,
         .instruction = (struct Instruction*) save_instruction,
     };
@@ -295,7 +395,6 @@ static int generate_return(struct OperationTreeNode* node, struct RiscVContext* 
         return err;
     }
     
-
     return 0;
 }
 
@@ -314,7 +413,7 @@ static int cfg_generate(struct CfgNode* cfg_node, struct RiscVContext* ctx)
     } else if (cfg_node->operation_node->type == OP_NODE_RETURN) {
         err = generate_return(cfg_node->operation_node, ctx);
     } else {
-        assert(0);
+        err = generate_function_call(cfg_node->operation_node, ctx);
     }
 
     if (err != 0) {
@@ -501,9 +600,67 @@ static int generate_epilog(struct RiscVContext* ctx)
     return 0;
 }
 
-int risc_v_generate_asm(const char* funciton_name, struct CfgNode* cfg_node, struct RiscVContext* ctx)
+static int load_arguments_on_stack(Vector* args, struct RiscVContext* ctx)
 {
-    int err = cfg_generate(cfg_node, ctx);
+    if (args->size > 8) {
+        puts("Function with more than 8 arguments no supported yet..");
+        assert(0);
+    }
+
+    for (size_t i = 0; i < args->size; i++) {
+        const struct FunctionArgument* arg = vector_get(args, i);
+
+        const size_t size = size_of_type(arg->type);
+        const struct StackRecording recording = {
+            .offset = ctx->stack_size,
+            .size = size,
+        };
+
+        const enum Mnemonic mn = store_mnemonic_by_size(size);
+
+        struct SLTypeInstruction* instr = sltype_instruction_init(mn, A0 + i, REGISTER_VARIABLE_MAPPING, ctx->stack_size);
+        if (instr == NULL) {
+            return -1;
+        }
+
+        ctx->stack_size += size;
+
+        const struct RiscVLine line = {
+            .type = LINE_TYPE_INSTRUCTION,
+            .instruction = (struct Instruction*) instr,
+        };
+
+        int err = linked_push_back(&ctx->instruction_list, &line);
+        if (err != 0) {
+            return err;
+        }
+
+        CString variable_name;
+        err = cstring_init(&variable_name, arg->name);
+        if (err != 0) {
+            return err;
+        }
+
+        err = map_insert(&ctx->stack_recording, &variable_name, &recording);
+        if (err != 0) {
+            cstring_free(&variable_name);
+            return err;
+        }
+
+        cstring_free(&variable_name);
+    }
+
+    return 0;
+}
+
+int risc_v_generate_asm(const char* funciton_name, struct CfgNode* cfg_node, Vector* args, struct RiscVContext* ctx)
+{
+    int err = load_arguments_on_stack(args, ctx);
+    if (err != 0) {
+        return err;
+    }
+
+    err = cfg_generate(cfg_node, ctx);
     if (err != 0) {
         return err;
     }
@@ -533,7 +690,7 @@ int risc_v_generate_asm(const char* funciton_name, struct CfgNode* cfg_node, str
 
 int generate_start_position(struct RiscVContext* ctx)
 {
-    struct Directive* start_directive = directive_init(GLOBAL, "main");
+    struct Directive* start_directive = directive_init(DIRECTIVE_TYPE_GLOBAL, "main");
     if (start_directive == NULL) {
         return -1;
     }

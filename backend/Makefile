@@ -29,6 +29,7 @@ SRC+= \
 	src/asm/riscv/asm_line.c \
 	src/asm/riscv/register.c \
 	src/asm/riscv/asm_directive.c \
+	src/asm/riscv/function_argument.c \
 
 OBJECTS := $(SRC:.c=.o)
 
