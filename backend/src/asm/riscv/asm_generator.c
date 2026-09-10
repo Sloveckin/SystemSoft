@@ -284,7 +284,7 @@ static int load_binary(const enum Mnemonic mnemonic, struct OperationTreeNode* n
         assert(0);
     }
 
-    struct R3Instruction* r3 = r3_instruction_init(MN_ADD, reg->type, *reg1, *reg2);
+    struct R3Instruction* r3 = r3_instruction_init(mnemonic, reg->type, *reg2, *reg1);
     if (r3 == NULL) {
         return -1;
     }
@@ -319,6 +319,8 @@ static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
         return generate_function_call(node, ctx);
     } else if (node->type == OP_NODE_PLUS) {
         return load_binary(MN_ADD, node, ctx);
+    } else if (node->type == OP_NODE_MINUS) {
+        return load_binary(MN_SUB, node, ctx);
     } else {
         assert(0);
     }

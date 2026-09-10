@@ -19,6 +19,7 @@ enum Mnemonic {
     MN_LW = 10,
     MN_ADD = 11,
     MN_CALL = 12,
+    MN_SUB = 13,
 };
 
 enum InstructionFormat {

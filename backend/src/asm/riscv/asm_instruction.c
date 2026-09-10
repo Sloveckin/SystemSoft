@@ -20,6 +20,7 @@ const char* mnemonic_to_str[] = {
     "lw",
     "add",
     "call",
+    "sub",
 };
 
 struct ITypeInstruction* itype_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const int64_t imm)
