@@ -276,6 +276,9 @@ static int load_binary(const enum Mnemonic mnemonic, struct OperationTreeNode* n
     stack_pop(&ctx->register_stack);
     const enum RegisterType* reg2 = stack_top(&ctx->register_stack);
     stack_pop(&ctx->register_stack);
+
+    ctx->machine.registers[*reg1].used = false;
+    ctx->machine.registers[*reg2].used = false;
     
 
     struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
@@ -321,6 +324,10 @@ static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
         return load_binary(MN_ADD, node, ctx);
     } else if (node->type == OP_NODE_MINUS) {
         return load_binary(MN_SUB, node, ctx);
+    } else if (node->type == OP_NODE_MUL) {
+        return load_binary(MN_MUL, node, ctx);
+    } else if (node->type == OP_NODE_DIV) {
+        return load_binary(MN_DIV, node, ctx);
     } else {
         assert(0);
     }

@@ -1,6 +1,5 @@
 #include "backend/asm/riscv/machine.h"
 #include "backend/asm/riscv/register.h"
-#include "colc/object_info.h"
 
 #include <stddef.h>
 
