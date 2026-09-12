@@ -22,6 +22,9 @@ enum Mnemonic {
     MN_SUB = 13,
     MN_MUL = 14,
     MN_DIV = 15,
+    MN_AND = 16,
+    MN_OR = 17,
+    MN_XOR = 18,
 };
 
 enum InstructionFormat {
