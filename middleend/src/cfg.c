@@ -599,6 +599,8 @@ static struct CfgNode* binary_operation(struct AstNode* node, const char* sign, 
         free(text);
         return NULL;
     }
+
+    cfg->operation_node = operation_tree_create(node);
     
     free(text);
     return cfg;

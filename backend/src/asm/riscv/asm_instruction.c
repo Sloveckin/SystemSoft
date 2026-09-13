@@ -25,7 +25,10 @@ const char* mnemonic_to_str[] = {
     "div",
     "and",
     "or",
-    "xor"
+    "xor",
+    "slt",
+    "blt",
+    "bne",
 };
 
 struct ITypeInstruction* itype_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const int64_t imm)
@@ -91,12 +94,15 @@ int write_inscruction(struct Instruction* instruction, FILE* file)
         res = fprintf(file, "\tcall %s\n", call->function_name);
     } else if (instruction->format == INSTRUCTION_FORMAT_R3) {
         const struct R3Instruction* r3_instr = (struct R3Instruction*) instruction;
-         int res = fprintf(file, "\t%s %s, %s, %s\n",
+        res = fprintf(file, "\t%s %s, %s, %s\n",
             mnemonic_to_str[r3_instr->base.mnemonic],
             register_type_to_str[r3_instr->reg1],
             register_type_to_str[r3_instr->reg2],
             register_type_to_str[r3_instr->reg3]
         );
+    } else if (instruction->format == INSTRUCTION_FORMAT_BRANCH) {
+        const struct BranchInstruction* branch_instr = (struct BranchInstruction*) instruction;
+        res = fprintf(file, "\t%s %s, %s, %s\n", mnemonic_to_str[branch_instr->base.mnemonic], register_type_to_str[branch_instr->reg1], register_type_to_str[branch_instr->reg2], branch_instr->label_name);
     } else {
         assert(0);
     }
@@ -177,6 +183,37 @@ struct Call* call_instruction_init(const char* name)
     call->base.free_function = call_instruction_free;
 
     return call;
+}
+
+static void branch_instruction_free(struct Instruction* instr)
+{
+    struct BranchInstruction* branch_instr = (struct BranchInstruction*) instr;
+    free(branch_instr->label_name);
+}
+
+struct BranchInstruction* branch_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const char* label_name)
+{
+    struct BranchInstruction* instr = malloc(sizeof(struct BranchInstruction));
+    if (instr == NULL) {
+        return NULL;
+    }
+
+    instr->base.format = INSTRUCTION_FORMAT_BRANCH;
+    instr->base.mnemonic = mnemonic;
+    instr->base.free_function = branch_instruction_free;
+
+    instr->reg1 = r1;
+    instr->reg2 = r2;
+
+    const size_t label_name_length = strlen(label_name) + 1;
+    instr->label_name = malloc(label_name_length * sizeof(char));
+    if (instr->label_name == NULL) {
+        free(instr);
+        return NULL;
+    }
+    strcpy(instr->label_name, label_name);
+
+    return instr;
 }
 
 void free_instruction(struct Instruction* instr)

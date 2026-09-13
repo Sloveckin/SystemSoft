@@ -67,6 +67,52 @@ static enum Mnemonic load_mnemonic_by_size(const size_t size)
     assert(0);
 }
 
+static int generate_function_name(const char* label_name, struct RiscVContext* ctx)
+{
+    const size_t label_text_length = strlen(label_name) + 1;
+    char* label_text = malloc(label_text_length * sizeof(char));
+    if (label_text == NULL) {
+        return -1;
+    }
+    strcpy(label_text, label_name);
+
+    const struct RiscVLine lable_line = {
+        .type = LINE_TYPE_LABEL,
+        .text = label_text,
+    };
+
+    int err = linked_push_front(&ctx->instruction_list, &lable_line);
+    if (err != 0) {
+        free(label_text);
+        return err;
+    }
+
+    return 0;
+}
+
+static int generate_lable(const char* label_name, struct RiscVContext* ctx)
+{
+    const size_t label_text_length = strlen(label_name) + 1;
+    char* label_text = malloc(label_text_length * sizeof(char));
+    if (label_text == NULL) {
+        return -1;
+    }
+    strcpy(label_text, label_name);
+
+    const struct RiscVLine lable_line = {
+        .type = LINE_TYPE_LABEL,
+        .text = label_text,
+    };
+
+    int err = linked_push_back(&ctx->instruction_list, &lable_line);
+    if (err != 0) {
+        free(label_text);
+        return err;
+    }
+
+    return 0;
+}
+
 static int load_const(struct OperationTreeNode* node, struct RiscVContext* ctx)
 {
     struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
@@ -254,7 +300,7 @@ static int generate_function_call(struct OperationTreeNode* node, struct RiscVCo
     return 0;
 }
 
-static int load_binary(const enum Mnemonic mnemonic, struct OperationTreeNode* node, struct RiscVContext* ctx)
+static int load_binary(const enum Mnemonic mnemonic, struct OperationTreeNode* node, struct RiscVContext* ctx, const bool order)
 {
     struct OperationTreeNode** pointer = vector_get(&node->children, 0);
     struct OperationTreeNode* left = *pointer;
@@ -286,7 +332,17 @@ static int load_binary(const enum Mnemonic mnemonic, struct OperationTreeNode* n
         assert(0);
     }
 
-    struct R3Instruction* r3 = r3_instruction_init(mnemonic, reg->type, *reg2, *reg1);
+    enum RegisterType first_reg;
+    enum RegisterType second_reg;
+    if (order == true) {
+        first_reg = *reg1;
+        second_reg = *reg2;
+    } else {
+        first_reg = *reg2;
+        second_reg = *reg1;
+    }
+
+    struct R3Instruction* r3 = r3_instruction_init(mnemonic, reg->type, first_reg, second_reg);
     if (r3 == NULL) {
         return -1;
     }
@@ -307,7 +363,6 @@ static int load_binary(const enum Mnemonic mnemonic, struct OperationTreeNode* n
         return err;
     }
 
-
     return 0;
 }
 
@@ -320,17 +375,23 @@ static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
     } else if (node->type == OP_NODE_CALL_OR_INDEXER) {
         return generate_function_call(node, ctx);
     } else if (node->type == OP_NODE_PLUS) {
-        return load_binary(MN_ADD, node, ctx);
+        return load_binary(MN_ADD, node, ctx, true);
     } else if (node->type == OP_NODE_MINUS) {
-        return load_binary(MN_SUB, node, ctx);
+        return load_binary(MN_SUB, node, ctx, true);
     } else if (node->type == OP_NODE_MUL) {
-        return load_binary(MN_MUL, node, ctx);
+        return load_binary(MN_MUL, node, ctx, true);
     } else if (node->type == OP_NODE_DIV) {
-        return load_binary(MN_DIV, node, ctx);
+        return load_binary(MN_DIV, node, ctx, true);
     } else if (node->type == OP_NODE_AND) {
-        return load_binary(MN_AND, node, ctx);
+        return load_binary(MN_AND, node, ctx, true);
     } else if (node->type == OP_NODE_OR) {
-        return load_binary(MN_OR, node, ctx);
+        return load_binary(MN_OR, node, ctx, true);
+    } else if (node->type == OP_NODE_LESS) {
+        return load_binary(MN_SLT, node, ctx, true);
+    } else if (node->type == OP_NODE_MORE) {
+        return load_binary(MN_SLT, node, ctx, false);
+    } else if (node->type == OP_NODE_EQ) {
+        return load_binary(MN_BNE, node, ctx, true);
     } else {
         assert(0);
     }
@@ -468,6 +529,94 @@ static int generate_return(struct OperationTreeNode* node, struct RiscVContext* 
     return 0;
 }
 
+static int generate_condition_compare(struct OperationTreeNode* node, struct RiscVContext* ctx, const bool order)
+{
+    struct OperationTreeNode** pointer = vector_get(&node->children, 0);
+    struct OperationTreeNode* left = *pointer;
+
+    pointer = vector_get(&node->children, 1);
+    struct OperationTreeNode* right = *pointer;
+
+    int err = load(left, ctx);
+    if (err != 0) {
+        return err;
+    }
+
+    err = load(right, ctx);
+    if (err != 0) {
+        return err;
+    }
+
+    const enum RegisterType* reg1 = stack_top(&ctx->register_stack);
+    stack_pop(&ctx->register_stack);
+    const enum RegisterType* reg2 = stack_top(&ctx->register_stack);
+    stack_pop(&ctx->register_stack);
+
+    ctx->machine.registers[*reg1].used = false;
+    ctx->machine.registers[*reg2].used = false;
+
+    enum RegisterType r1;
+    enum RegisterType r2;
+    if (order == true) {
+        r1 = *reg1;
+        r2 = *reg2;
+    } else {
+        r1 = *reg2;
+        r2 = *reg1;
+    }
+
+    struct BranchInstruction* less_instr = branch_instruction_init(MN_BLT, r1, r2, ctx->label_generator->true_block_buffer);
+    const struct RiscVLine less_line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) less_instr,
+    };
+
+    err = linked_push_back(&ctx->instruction_list, &less_line);
+    if (err != 0) {
+        free_instruction((struct Instruction*) less_instr);
+        free(less_instr);
+        return err;
+    }
+
+    struct JalInstruction* jal = jal_instructoin_init(ZERO, ctx->label_generator->false_block_buffer);
+    const struct RiscVLine jal_line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) jal,
+    };
+
+    err = linked_push_back(&ctx->instruction_list, &jal_line);
+    if (err != 0) {
+        free_instruction((struct Instruction*) jal);
+        free(jal);
+        free_instruction((struct Instruction*) less_instr);
+        free(less_instr);
+        return err;
+    }
+
+
+    return 0;
+}
+
+static int cfg_generate(struct CfgNode* cfg_node, struct RiscVContext* ctx);
+
+static int generate_jump(struct RiscVContext* ctx, const char* to_block)
+{
+    struct JalInstruction* jmp_to_true = jal_instructoin_init(ZERO, to_block);
+    const struct RiscVLine line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) jmp_to_true,
+    };
+    int err = linked_push_back(&ctx->instruction_list, &line);
+    if (err != 0) {
+        free_instruction((struct Instruction*) jmp_to_true);
+        return err;
+    }
+
+    return 0;
+}
+
+static int generate_jump_into_return_block(struct RiscVContext* ctx);
+
 static int cfg_generate(struct CfgNode* cfg_node, struct RiscVContext* ctx)
 {
     if (cfg_node == NULL || cfg_node->asm_data.asm_generated == true) {
@@ -475,27 +624,91 @@ static int cfg_generate(struct CfgNode* cfg_node, struct RiscVContext* ctx)
     }
 
     cfg_node->asm_data.asm_generated = true;
+
+    if (cfg_node->operation_node == NULL) {
+
+        int err = generate_jump(ctx, ctx->label_generator->after_block_buffer);
+        if (err != 0) {
+            return err;
+        }
+
+        err = generate_lable(ctx->label_generator->after_block_buffer, ctx);
+        if (err != 0) {
+            return err;
+        }
+
+        err = generate_jump_into_return_block(ctx);
+        if (err != 0) {
+            return err;
+        }
+
+        return 0;
+    }
+
     int err = 0;
     if (cfg_node->operation_node->type == OP_NODE_CREATION_VARIABLE) {
-        err =generate_creation_variable(cfg_node->operation_node, ctx);
+        err = generate_creation_variable(cfg_node->operation_node, ctx);
     } else if(cfg_node->operation_node->type == OP_NODE_ASSIGMENT) {
         err = generate_assigment(cfg_node->operation_node, ctx);
     } else if (cfg_node->operation_node->type == OP_NODE_RETURN) {
         err = generate_return(cfg_node->operation_node, ctx);
-    } else {
+    } else if (cfg_node->operation_node->type == OP_NODE_CALL_OR_INDEXER) {
         err = generate_function_call(cfg_node->operation_node, ctx);
+    } else if (cfg_node->operation_node->type == OP_NODE_LESS) {
+        err = generate_condition_compare(cfg_node->operation_node, ctx, false);
+    } else if (cfg_node->operation_node->type == OP_NODE_MORE) {
+        err = generate_condition_compare(cfg_node->operation_node, ctx, true);
+    } else {
+        assert(0);
     }
 
     if (err != 0) {
         return err;
     }
+
+    if (cfg_node->end == NULL) {
+        err =  cfg_generate(cfg_node->def, ctx);
+        if (err != 0) {
+            return err;
+        }
+
+        return 0;
+    }
+
+    err = generate_lable(ctx->label_generator->true_block_buffer, ctx);
+    if (err != 0) {
+        return err;
+    }
+    label_true_block_update(ctx->label_generator);
+
+
+    err = cfg_generate(cfg_node->condition, ctx);
+    if (err != 0) {
+        return err;
+    }
+
+
+    err = generate_lable(ctx->label_generator->false_block_buffer, ctx);
+    if (err != 0) {
+        return err;
+    }
+    label_false_block_update(ctx->label_generator);
+
 
     err = cfg_generate(cfg_node->def, ctx);
     if (err != 0) {
         return err;
     }
 
-    return cfg_generate(cfg_node->condition, ctx);
+    err = generate_jump(ctx, ctx->label_generator->after_block_buffer);
+    if (err != 0) {
+        return err;
+    }
+    label_after_block_update(ctx->label_generator);
+
+
+
+    return 0;
 }
 
 static int generate_jump_into_return_block(struct RiscVContext* ctx)
@@ -559,29 +772,6 @@ static int generate_prolog(struct RiscVContext* ctx)
         free(save_ra);
         free(add_stack_frame);
         return -1;
-    }
-
-    return 0;
-}
-
-static int generate_lable(const char* function_name, struct RiscVContext* ctx)
-{
-    const size_t label_text_length = strlen(function_name) + 1;
-    char* label_text = malloc(label_text_length * sizeof(char));
-    if (label_text == NULL) {
-        return -1;
-    }
-    strcpy(label_text, function_name);
-
-    const struct RiscVLine lable_line = {
-        .type = LINE_TYPE_LABEL,
-        .text = label_text,
-    };
-
-    int err = linked_push_front(&ctx->instruction_list, &lable_line);
-    if (err != 0) {
-        free(label_text);
-        return err;
     }
 
     return 0;
@@ -746,7 +936,7 @@ int risc_v_generate_asm(const char* funciton_name, struct CfgNode* cfg_node, Vec
         return err;
     }
 
-    err = generate_lable(funciton_name, ctx);
+    err = generate_function_name(funciton_name, ctx);
     if (err != 0) {
         return err;
     }
