@@ -59,6 +59,8 @@ void yyerror(struct AstNode*, char*);
 
 %token BR_OPEN
 %token BR_CLOSE
+%token SQ_BR_OPEN
+%token SQ_BR_CLOSE
 %token SEMICOLON
 
 %token COMMA
@@ -116,6 +118,7 @@ void yyerror(struct AstNode*, char*);
 %type <node> source_item_list
 %type <node> array
 %type <node> return
+%type <node> indexer
 
 %%
 
@@ -445,10 +448,20 @@ call_or_indexer: expr BR_OPEN expr_list BR_CLOSE    {
                                                     }
 ;
 
+indexer: expr SQ_BR_OPEN expr_list SQ_BR_CLOSE    {
+                                                        struct AstNode* node = malloc(sizeof(struct AstNode));
+                                                        ast_node_init(node, AST_TYPE_INDEXER);
+                                                        vector_push(&node->children, &$1);
+                                                        vector_push(&node->children, &$3);
+                                                        $$ = node;
+                                                    }
+;
+
 expr:  assigment { $$ = $1; }
     |  binary { $$ = $1; }
     |  unary { $$ = $1; }
     |  braces { $$ = $1; }
+    |  indexer { $$ = $1; }
     |  call_or_indexer { $$ = $1; }
     |  place { $$ = $1; }
     |  literal { $$ = $1; }

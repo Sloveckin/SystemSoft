@@ -170,6 +170,10 @@ true|false  {
                         }
 
 
+\[ { return SQ_BR_OPEN; }
+
+\] { return SQ_BR_CLOSE; }
+
 "(" { return BR_OPEN; }
 ")" { return BR_CLOSE; }
 

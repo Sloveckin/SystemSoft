@@ -23,6 +23,71 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static bool can_compute_in_compile_time(struct OperationTreeNode* node) {
+    if (node->type == OP_NODE_CONST) {
+        return true;
+    } else if (node->type == OP_NODE_PLUS
+            || node->type == OP_NODE_MINUS
+            || node->type == OP_NODE_MUL
+            || node->type == OP_NODE_DIV
+            || node->type == OP_NODE_AND
+            || node->type == OP_NODE_OR) {
+        struct OperationTreeNode** pointer = vector_get(&node->children, 0);
+        struct OperationTreeNode* left = *pointer;
+
+        pointer = vector_get(&node->children, 1);
+        struct OperationTreeNode* right = *pointer;
+
+        return can_compute_in_compile_time(left) && can_compute_in_compile_time(right);
+    } else if (node->type == OP_NODE_LOAD) {
+        return false;
+    }
+
+    assert(0);
+}
+
+static void compute_in_compile_time(struct OperationTreeNode* node) {
+    if (node->type == OP_NODE_CONST) {
+        if (strcmp(node->argument, "true") == 0) {
+            node->compiled_info.value.boolean = true;
+        } else if (strcmp(node->argument, "false") == 0) {
+            node->compiled_info.value.boolean = false;
+        } else {
+            // Yes, I can use atoi, because node->argument has valid value
+            node->compiled_info.value.number = atoi(node->argument);
+        }
+    } else if (node->type == OP_NODE_PLUS
+            || node->type == OP_NODE_MINUS
+            || node->type == OP_NODE_MUL
+            || node->type == OP_NODE_DIV
+            || node->type == OP_NODE_AND
+            || node->type == OP_NODE_OR) {
+        struct OperationTreeNode** pointer = vector_get(&node->children, 0);
+        struct OperationTreeNode* left = *pointer;
+        compute_in_compile_time(left);
+
+        pointer = vector_get(&node->children, 1);
+        struct OperationTreeNode* right = *pointer;
+        compute_in_compile_time(right);
+            
+        if (node->type == OP_NODE_PLUS) {
+            node->compiled_info.value.number = left->compiled_info.value.number + right->compiled_info.value.number;
+        } else if (node->type == OP_NODE_MINUS) {
+            node->compiled_info.value.number = left->compiled_info.value.number - right->compiled_info.value.number;
+        } else if (node->type == OP_NODE_MUL) {
+            node->compiled_info.value.number = left->compiled_info.value.number * right->compiled_info.value.number;
+        } else if (node->type == OP_NODE_DIV) {
+            node->compiled_info.value.number = left->compiled_info.value.number / right->compiled_info.value.number;
+        } else if (node->type == OP_NODE_AND) {
+            node->compiled_info.value.number = left->compiled_info.value.boolean && right->compiled_info.value.boolean;
+        } else if (node->type == OP_NODE_OR) {
+            node->compiled_info.value.number = left->compiled_info.value.boolean || right->compiled_info.value.boolean;
+        } else {
+            assert(0);
+        }
+
+    }
+}
 
 static size_t size_of_type(const enum OperationNodeType type) {
     if (type == OP_NODE_TYPE_INT || type == OP_NODE_TYPE_UINT) {
@@ -34,7 +99,6 @@ static size_t size_of_type(const enum OperationNodeType type) {
     } else if (type == OP_NODE_TYPE_BOOL) {
         return BOOL_SIZE;
     }
-
     assert (0);
 }
 
@@ -158,7 +222,7 @@ static int load_const(struct OperationTreeNode* node, struct RiscVContext* ctx)
     return 0;
 }
 
-static int load_variable(const struct OperationTreeNode* node, struct RiscVContext* ctx)
+static int load_variable(const struct OperationTreeNode* node, struct RiscVContext* ctx, const size_t offset)
 {
     struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
     if (reg == NULL) {
@@ -176,7 +240,7 @@ static int load_variable(const struct OperationTreeNode* node, struct RiscVConte
     const struct StackRecording* stack_recording = map_get(&ctx->stack_recording, &variable_name);
     const enum Mnemonic mn = load_mnemonic_by_size(stack_recording->size);
 
-    const struct SLTypeInstruction* load_instr = sltype_instruction_init(mn, reg->type, REGISTER_VARIABLE_MAPPING, stack_recording->offset);
+    const struct SLTypeInstruction* load_instr = sltype_instruction_init(mn, reg->type, REGISTER_VARIABLE_MAPPING, stack_recording->offset + offset * stack_recording->size);
     if (load_instr == NULL) {
         cstring_free(&variable_name);
         return -1;
@@ -367,12 +431,127 @@ static int load_binary(const enum Mnemonic mnemonic, struct OperationTreeNode* n
     return 0;
 }
 
+static int load_indexer(struct OperationTreeNode* node, struct RiscVContext* ctx)
+{
+    struct OperationTreeNode** pointer = vector_get(&node->children, 0);
+    struct OperationTreeNode* name = *pointer;
+
+    pointer = vector_get(&node->children, 1);
+    struct OperationTreeNode* offset_node = *pointer;
+
+    pointer = vector_get(&offset_node->children, 0);
+    struct OperationTreeNode* offset_number = *pointer;
+
+    if (can_compute_in_compile_time(offset_number) == true) {
+        compute_in_compile_time(offset_number);
+        return load_variable(name, ctx, offset_number->compiled_info.value.number);
+    } else {
+        
+        CString variable_name;
+        int err = cstring_init(&variable_name, name->argument);
+        if (err != 0) {
+            return err;
+        }
+        // Checking is useless, because recording exists in map
+        const struct StackRecording* recoring = map_get(&ctx->stack_recording, &variable_name);
+
+        struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
+        if (reg == NULL) {
+            puts("can not find free tmp register, rewrite your code");
+            assert(0);
+        }
+        reg->used = true;
+
+        struct ITypeInstruction* addi = itype_instruction_init(MN_ADDI, reg->type, SP, recoring->offset);
+        if (addi == NULL) {
+            cstring_free(&variable_name);
+            return -1;
+        }
+
+        const struct RiscVLine addi_line = {
+            .type = LINE_TYPE_INSTRUCTION,
+            .instruction = (struct Instruction*) addi,
+        };
+
+        err = linked_push_back(&ctx->instruction_list, &addi_line);
+        if (err != 0) {
+            cstring_free(&variable_name);
+            free(addi);
+            return err;
+        }
+
+        struct ITypeInstruction* addi2 = itype_instruction_init(MN_ADDI, reg->type, reg->type, offset_number->compiled_info.value.number * recoring->size);
+
+
+        const struct RiscVLine addi_line2 = {
+            .type = LINE_TYPE_INSTRUCTION,
+            .instruction = (struct Instruction*) addi2,
+        };
+
+        err = linked_push_back(&ctx->instruction_list, &addi_line2);
+        if (err != 0) {
+            cstring_free(&variable_name);
+            free(addi2);
+            free(addi);
+            return err;
+        }
+
+        struct Register* reg_to = riscv_machine_get_temp_register(&ctx->machine);
+        if (reg == NULL) {
+            puts("can not findx free tmp register, rewrite your code");
+            cstring_free(&variable_name);
+            free(addi2);
+            free(addi);
+            assert(0);
+        }
+        reg_to->used = true;
+
+        err = stack_push(&ctx->register_stack, &reg_to->type);
+        if (err != 0) {
+            puts("can not findx free tmp register, rewrite your code");
+            cstring_free(&variable_name);
+            free(addi2);
+            free(addi);
+            assert(0);
+        }
+        
+
+        const enum Mnemonic load_mnemonic = load_mnemonic_by_size(recoring->size);
+        struct SLTypeInstruction* save_instruction = sltype_instruction_init(load_mnemonic, reg_to->type, reg->type, 0);
+        if (save_instruction == NULL) {
+            cstring_free(&variable_name);
+            free(addi2);
+            free(addi);
+            return -1;
+        }
+
+        const struct RiscVLine line = {
+            .type = LINE_TYPE_INSTRUCTION,
+            .instruction = (struct Instruction*) save_instruction,
+        };
+
+        err = linked_push_back(&ctx->instruction_list, &line);
+        if (err != 0) {
+            cstring_free(&variable_name);
+            free(addi2);
+            free(addi);
+        }
+
+
+        cstring_free(&variable_name);
+
+        return 0;
+    }
+    
+    return 0;
+}
+
 static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
 {
     if (node->type == OP_NODE_CONST) {
         return load_const(node, ctx);
     } else if (node->type == OP_NODE_LOAD) {
-        return load_variable(node, ctx);
+        return load_variable(node, ctx, 0);
     } else if (node->type == OP_NODE_CALL_OR_INDEXER) {
         return generate_function_call(node, ctx);
     } else if (node->type == OP_NODE_PLUS) {
@@ -393,6 +572,8 @@ static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
         return load_binary(MN_SLT, node, ctx, false);
     } else if (node->type == OP_NODE_EQ) {
         return load_binary(MN_BNE, node, ctx, true);
+    } else if (node->type == OP_NODE_INDEXER) {
+        return load_indexer(node, ctx);
     } else {
         assert(0);
     }
@@ -400,7 +581,7 @@ static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
     return 0;
 }
 
-static int store(struct OperationTreeNode* node, struct RiscVContext* ctx)
+static int store_with_offset(struct OperationTreeNode* node, struct RiscVContext* ctx, const size_t offset)
 {
     CString variable_name;
     int err = cstring_init(&variable_name, node->argument);
@@ -415,7 +596,7 @@ static int store(struct OperationTreeNode* node, struct RiscVContext* ctx)
     ctx->machine.registers[*reg].used = false;
 
     const enum Mnemonic store_mnemonic = store_mnemonic_by_size(recoring->size);
-    struct SLTypeInstruction* save_instruction = sltype_instruction_init(store_mnemonic, *reg, REGISTER_VARIABLE_MAPPING, recoring->offset);
+    struct SLTypeInstruction* save_instruction = sltype_instruction_init(store_mnemonic, *reg, REGISTER_VARIABLE_MAPPING, recoring->offset + offset * recoring->size);
     if (save_instruction == NULL) {
         cstring_free(&variable_name);
         return -1;
@@ -435,6 +616,109 @@ static int store(struct OperationTreeNode* node, struct RiscVContext* ctx)
     return 0;
 }
 
+static int store(struct OperationTreeNode* node, struct RiscVContext* ctx)
+{
+    if (node->type == OP_NODE_STORE) {
+        return store_with_offset(node, ctx, 0);
+    } 
+
+    struct OperationTreeNode** pointer = vector_get(&node->children, 0);
+    struct OperationTreeNode* name = *pointer;
+
+    pointer = vector_get(&node->children, 1);
+    struct OperationTreeNode* offset_node = *pointer;
+
+    pointer = vector_get(&offset_node->children, 0);
+    struct OperationTreeNode* offset_number = *pointer;
+
+    if (can_compute_in_compile_time(offset_number) == true) {
+        compute_in_compile_time(offset_number);
+        return store_with_offset(name, ctx, offset_number->compiled_info.value.number);
+    } else {
+
+        CString variable_name;
+        int err = cstring_init(&variable_name, name->argument);
+        if (err != 0) {
+            return err;
+        }
+        // Checking is useless, because recording exists in map
+        const struct StackRecording* recoring = map_get(&ctx->stack_recording, &variable_name);
+
+        struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
+        if (reg == NULL) {
+            puts("can not find free tmp register, rewrite your code");
+            assert(0);
+        }
+        reg->used = true;
+
+        struct ITypeInstruction* addi = itype_instruction_init(MN_ADDI, reg->type, SP, recoring->offset);
+        if (addi == NULL) {
+            cstring_free(&variable_name);
+            return -1;
+        }
+
+        const struct RiscVLine addi_line = {
+            .type = LINE_TYPE_INSTRUCTION,
+            .instruction = (struct Instruction*) addi,
+        };
+
+        err = linked_push_back(&ctx->instruction_list, &addi_line);
+        if (err != 0) {
+            cstring_free(&variable_name);
+            free(addi);
+            return err;
+        }
+
+        struct ITypeInstruction* addi2 = itype_instruction_init(MN_ADDI, reg->type, reg->type, offset_number->compiled_info.value.number * recoring->size);
+
+
+        const struct RiscVLine addi_line2 = {
+            .type = LINE_TYPE_INSTRUCTION,
+            .instruction = (struct Instruction*) addi2,
+        };
+
+        err = linked_push_back(&ctx->instruction_list, &addi_line2);
+        if (err != 0) {
+            cstring_free(&variable_name);
+            free(addi2);
+            free(addi);
+            return err;
+        }
+
+        const enum RegisterType* reg_to = stack_top(&ctx->register_stack);
+        stack_pop(&ctx->register_stack);
+        ctx->machine.registers[*reg_to].used = false;
+
+        const enum Mnemonic store_mnemonic = store_mnemonic_by_size(recoring->size);
+        struct SLTypeInstruction* save_instruction = sltype_instruction_init(store_mnemonic, *reg_to, reg->type, 0);
+        if (save_instruction == NULL) {
+            cstring_free(&variable_name);
+            free(addi2);
+            free(addi);
+            return -1;
+        }
+
+        const struct RiscVLine line = {
+            .type = LINE_TYPE_INSTRUCTION,
+            .instruction = (struct Instruction*) save_instruction,
+        };
+
+        err = linked_push_back(&ctx->instruction_list, &line);
+        if (err != 0) {
+            cstring_free(&variable_name);
+            free(addi2);
+            free(addi);
+        }
+
+
+        cstring_free(&variable_name);
+        
+        return 0;
+    }
+
+    assert(0);
+}
+
 static int generate_creation_variable(struct OperationTreeNode* node, struct RiscVContext* ctx)
 {
     struct OperationTreeNode** pointer = vector_get(&node->children, 0);
@@ -443,7 +727,22 @@ static int generate_creation_variable(struct OperationTreeNode* node, struct Ris
     pointer = vector_get(&node->children, 1);
     struct OperationTreeNode* type = *pointer;
 
-    const size_t type_size = size_of_type(type->type);
+    size_t type_size;
+    size_t stack_move;
+    if (type->type == OP_NODE_TYPE_ARRAY) {
+        pointer = vector_get(&type->children, 0);
+        struct OperationTreeNode* array_type = *pointer;
+
+        pointer = vector_get(&type->children, 1);
+        struct OperationTreeNode* node_length = *pointer;
+        compute_in_compile_time(node_length);
+
+        type_size = size_of_type(array_type->type);
+        stack_move = type_size * node_length->compiled_info.value.number;
+    } else {
+        type_size = size_of_type(type->type);
+        stack_move = type_size;
+    }
 
     for (size_t i = 0; i < variables->children.size; i++) {
         pointer = vector_get(&variables->children, i);
@@ -459,7 +758,7 @@ static int generate_creation_variable(struct OperationTreeNode* node, struct Ris
             .size = type_size,
             .offset = ctx->stack_size,
         };
-        ctx->stack_size += type_size;
+        ctx->stack_size += stack_move;
 
         err = map_insert(&ctx->stack_recording, &variable_name, &stack_recording);
         if (err != 0) {
@@ -646,8 +945,6 @@ static int cfg_generate(struct CfgNode* cfg_node, struct RiscVContext* ctx)
     }
 
     cfg_node->asm_data.asm_generated = true;
-
-    
 
     int err = 0;    
     if (cfg_node->operation_node != NULL) {

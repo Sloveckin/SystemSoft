@@ -40,8 +40,6 @@ static char* get_text(struct AstNode* node)
 
 struct Type* get_type(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, int* error, bool add_to_ctx);
 
-
-// TODO: rewrite this shit
 static struct Type* analyze_array_type(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, int* error)
 {
     struct AstNode** pointer = vector_get(&node->children, 0);
@@ -306,7 +304,7 @@ static struct Type* is_lvalue(struct AstNode* node, Vector* errors, struct Seman
 {
     if (node->type == AST_TYPE_IDENTIFIER) {
         return check_is_variable(node, errors, ctx, error_occur, error);
-    } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
+    } else if (node->type == AST_TYPE_INDEXER) {
         struct AstNode** pointer = vector_get(&node->children, 0);
         struct AstNode* name_of_array_node = *pointer;
         return check_is_variable(name_of_array_node, errors, ctx, error_occur, error);
@@ -315,11 +313,11 @@ static struct Type* is_lvalue(struct AstNode* node, Vector* errors, struct Seman
     *error_occur = true;
     struct Error error_info;
     union ErrorData data;
-    strcpy(data.text, node->text);
+    strcpy(data.text, "function call");
     error_init(&error_info, ERROR_TYPE_NOT_LVALUE, data);
     
 
-    int err = vector_push(errors, &error);
+    int err = vector_push(errors, &error_info);
     if (err != 0) {
         *error = err;
         return NULL;
@@ -737,7 +735,7 @@ static int analyze_array_argument(struct AstNode* node, Vector* errors, struct S
 
 static int analyze_function_call(struct AstNode* node, Vector* errors, struct SemanticContext* ctx, bool* error_occur, struct ExpressionInfo* expr_info)
 {
-    assert(node->type == AST_TYPE_CALL_OR_INDEXER);
+    assert(node->type == AST_TYPE_CALL_OR_INDEXER || node->type == AST_TYPE_INDEXER);
 
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* caller_node = *pointer;
@@ -919,7 +917,7 @@ static int analyze_rvalue(struct AstNode* node, Vector* errors, struct SemanticC
         if (err != 0) {
             return err;
         }
-    } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
+    } else if (node->type == AST_TYPE_CALL_OR_INDEXER || node->type == AST_TYPE_INDEXER) {
         int err = analyze_function_call(node, errors, ctx, error_occur, expr_info);
         if (err != 0) {
             return err;
@@ -971,7 +969,14 @@ static int analyze_assigmnet(struct AstNode* node, Vector* errors, bool *error_o
         return 0;
     }
 
-    if (types_suitable(lvalue_type, right_info.type) == false) {
+    struct Type* left_type;
+    if (lvalue_type->kind == TYPE_KIND_ARRAY) {
+        left_type = ((struct ArrayType*) lvalue_type)->element_type;
+    } else {
+        left_type = lvalue_type;
+    }
+
+    if (types_suitable(left_type, right_info.type) == false) {
         struct Error invalid_type_error;
         union ErrorData data = {
             .types = {
@@ -1074,7 +1079,14 @@ static int analyze_return(struct AstNode* node, Vector* errors, bool* error_occu
         return err;
     }
 
-    if (types_suitable(ctx->signature->return_type, info.type) == false) {
+    struct Type* right_type;
+    if (info.type->kind == TYPE_KIND_ARRAY) {
+        right_type = ((struct ArrayType*) info.type)->element_type;
+    } else {
+        right_type = info.type;
+    }
+
+    if (types_suitable(ctx->signature->return_type, right_type) == false) {
         struct Error error;
         union ErrorData data = {
             .types = {
@@ -1133,6 +1145,10 @@ static int analyze_statement_list(struct AstNode* node, Vector* errors, bool* er
         int err = analyze_statement(statement_node, errors, error_occur, ctx);
         if (err != 0) {
             return err;
+        }
+
+        if (*error_occur == true) {
+            return 0;
         }
     }
 

@@ -51,5 +51,6 @@ const char* ast_type_to_string[] = {
     "ARRAY",
     "RETURN",
     "SHORT",
-    "USHORT"
+    "USHORT",
+    "INDEXER",
 };

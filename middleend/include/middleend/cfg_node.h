@@ -4,6 +4,9 @@
 #include "colc/vector.h"
 #include "middleend/optree.h"
 #include <stdbool.h>
+#include <stdint.h>
+
+
 
 struct CfgNode {
     bool has_label;

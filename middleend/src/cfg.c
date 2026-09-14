@@ -195,7 +195,7 @@ static char* get_text_from_binary(struct AstNode* node, const char* sign_text)
     return text;
 }
 
-static char* get_text_from_call_or_indexer(struct AstNode* node)
+static char* get_text_from_call_or_indexer(struct AstNode* node, const char br_open, const char br_close)
 {
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* identifier_node = *pointer;
@@ -224,7 +224,7 @@ static char* get_text_from_call_or_indexer(struct AstNode* node)
         return NULL;
     }
 
-    sprintf(text, "%s(%s)", identifier_text, arguments_text);
+    sprintf(text, "%s%c%s%c", identifier_text, br_open, arguments_text, br_close);
     free(identifier_text);
     free(arguments_text);
 
@@ -245,7 +245,7 @@ static char* get_text_from_array(struct AstNode* node)
     pointer = vector_get(&node->children, 1);
     struct AstNode* length_node = *pointer;
 
-    char* length = get_text_from_node(length_node);
+    char* length = get_text(length_node);
     if (length == NULL) {
         free(type);
         return NULL;
@@ -335,7 +335,9 @@ static char* get_text(struct AstNode* node)
     } else if (node->type == AST_TYPE_NOT_EQ) {
         return get_text_from_binary(node, "<>");
     } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
-        return get_text_from_call_or_indexer(node);
+        return get_text_from_call_or_indexer(node, '(', ')');
+    } else if (node->type == AST_TYPE_INDEXER) {
+        return get_text_from_call_or_indexer(node, '[', ']');
     } else if (node->type == AST_TYPE_ARRAY) {
         return get_text_from_array(node);
     } else if (node->type == AST_TYPE_UNARY_MINUS) {
@@ -744,6 +746,10 @@ static struct CfgNode* do_cycle(struct AstNode* node, struct CfgContext* ctx)
         condition->def = statments;
     }
 
+    condition->has_label = true;
+    condition->def->has_label = true;
+    condition->condition->has_label = true;
+
     ctx->after_cycle = NULL;
     return statments;
 }
@@ -769,7 +775,7 @@ static struct CfgNode* break_(struct AstNode* node, struct CfgContext* ctx)
     return cfg_node;
 }
 
-static struct CfgNode* call_or_indexer(struct AstNode* node, struct CfgContext* ctx)
+static struct CfgNode* call_or_indexer(struct AstNode* node, struct CfgContext* ctx, const char br_open, const char br_close)
 {
 
     struct AstNode** pointer = vector_get(&node->children, 0);
@@ -778,7 +784,7 @@ static struct CfgNode* call_or_indexer(struct AstNode* node, struct CfgContext* 
     pointer = vector_get(&node->children, 1);
     struct AstNode* expr_list_node = *pointer;
 
-    char* text = get_text_from_call_or_indexer(node);
+    char* text = get_text_from_call_or_indexer(node, br_open, br_close);
     if (text == NULL) {
         return NULL;
     }
@@ -838,7 +844,9 @@ static struct CfgNode* control_flow_graph_create(struct AstNode* node, struct Cf
     } else if (node->type == AST_TYPE_BREAK) {
         return break_(node, ctx);
     } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
-        return call_or_indexer(node, ctx);
+        return call_or_indexer(node, ctx, '(', ')');
+    } else if (node->type == AST_TYPE_INDEXER) {
+        return call_or_indexer(node, ctx, '[', ']');
     }
 
     assert(0);

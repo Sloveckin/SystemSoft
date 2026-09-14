@@ -2,6 +2,7 @@
 #define OPERATION_TREE_H
 
 #include "ast/ast_node.h"
+#include <stdint.h>
 
 enum OperationNodeType {
     OP_NODE_CREATION_VARIABLE,
@@ -38,12 +39,24 @@ enum OperationNodeType {
     OP_NODE_UNARY_MINUS,
     OP_NODE_UNARY_PLUS,
     OP_NODE_BOOL,
+    OP_NODE_INDEXER,
+};
+
+struct CompiledInfo {
+    bool is_constant;
+
+    union {
+        int64_t number;
+        bool boolean;
+    } value;
 };
 
 struct OperationTreeNode {
     enum OperationNodeType type;
 
     char* argument;
+
+    struct CompiledInfo compiled_info;
 
     Vector children;
     struct {

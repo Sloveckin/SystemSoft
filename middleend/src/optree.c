@@ -27,6 +27,9 @@ int operation_tree_node_init(struct OperationTreeNode* node, const enum Operatio
     if (err != 0) {
         return err;
     }
+
+    node->compiled_info.is_constant = false;
+    node->compiled_info.value.number = 0;
     
     return 0;
 }
@@ -262,7 +265,7 @@ static struct OperationTreeNode* create_store(struct AstNode* node)
             free(store);
             return NULL;
         }
-    } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
+    } else if (node->type == AST_TYPE_INDEXER) {
         struct AstNode** pointer = vector_get(&node->children, 0);
         struct AstNode* name_node = *pointer;
 
@@ -319,6 +322,8 @@ static struct OperationTreeNode* create_store(struct AstNode* node)
             return NULL;
         }
 
+    } else {
+        assert(0);
     }
 
 
@@ -525,7 +530,7 @@ static struct OperationTreeNode* return_(struct AstNode* node)
     return op_node;
 }
 
-static struct OperationTreeNode* call_or_indexer(struct AstNode* node)
+static struct OperationTreeNode* call_or_indexer(struct AstNode* node, const enum OperationNodeType type)
 {
     struct AstNode** pointer = vector_get(&node->children, 0);
     struct AstNode* name_node = *pointer;
@@ -538,7 +543,7 @@ static struct OperationTreeNode* call_or_indexer(struct AstNode* node)
         return NULL;
     }
 
-    int err = operation_tree_node_init(call,OP_NODE_CALL_OR_INDEXER);
+    int err = operation_tree_node_init(call,type);
     if (err != 0) {
         free(call);
         return NULL;
@@ -675,7 +680,9 @@ struct OperationTreeNode* operation_tree_create(struct AstNode* node)
     } else if (node->type == AST_TYPE_RETURN) {
         return return_(node);
     } else if (node->type == AST_TYPE_CALL_OR_INDEXER) {
-        return call_or_indexer(node);
+        return call_or_indexer(node, OP_NODE_CALL_OR_INDEXER);
+    } else if (node->type == AST_TYPE_INDEXER) {
+        return call_or_indexer(node, OP_NODE_INDEXER);
     } else if (node->type == AST_TYPE_EXPR_LIST) {
         return expr_list(node);
     } else if (node->type == AST_TYPE_UNARY_MINUS) {
