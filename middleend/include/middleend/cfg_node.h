@@ -6,6 +6,9 @@
 #include <stdbool.h>
 
 struct CfgNode {
+    bool has_label;
+    bool jump_was_created;
+
     char* text;
     struct CfgNode* def;
     struct CfgNode* condition;

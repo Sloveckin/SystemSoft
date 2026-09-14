@@ -527,11 +527,13 @@ static struct CfgNode* if_block(struct AstNode* node, struct CfgContext* ctx)
     if (condition == NULL) {
         return NULL;
     }
+    condition->has_label = true;
 
     struct CfgNode* body = control_flow_graph_create(body_node, ctx);
     if (body == NULL) {
         return NULL;
     }
+    body->has_label = true;
 
     if (else_node != NULL) {
         struct CfgNode* else_block = control_flow_graph_create(else_node, ctx);
@@ -543,6 +545,10 @@ static struct CfgNode* if_block(struct AstNode* node, struct CfgContext* ctx)
         condition->condition = body;
         condition->def = else_block;
 
+        condition->condition->has_label = true;
+        condition->def->has_label = true;
+        condition->end->has_label = true;
+
         struct CfgNode* body_last = find_last_cfg_node(body, NULL);
         body_last->def = end;
 
@@ -552,6 +558,10 @@ static struct CfgNode* if_block(struct AstNode* node, struct CfgContext* ctx)
         condition->end = end;
         condition->condition = body;
         condition->def = end;
+
+        condition->def->has_label = true;
+        condition->condition->has_label = true;
+        condition->end->has_label = true;
 
         struct CfgNode* body_last = find_last_cfg_node(body, NULL);
         update_default(body_last, end);
@@ -679,6 +689,10 @@ static struct CfgNode* while_cycle(struct AstNode* node, struct CfgContext* ctx)
     condition->end = end;
     condition->def = end;
     condition->condition = statments;
+
+    condition->has_label = true;
+    condition->end->has_label = true;
+    condition->condition->has_label = true;
 
     struct CfgNode* last_statment = find_last_cfg_node(statments, end);
     update_default(last_statment, condition);

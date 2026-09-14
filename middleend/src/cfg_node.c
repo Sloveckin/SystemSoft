@@ -19,6 +19,9 @@ int cfg_node_init(struct CfgNode* node, char* text, Vector* nodes)
     }
     strcpy(node->text, text);
 
+    node->has_label = false;
+    node->jump_was_created = false;
+
     return 0;
 }
 
@@ -32,6 +35,9 @@ int cfg_node_init_empty(struct CfgNode* node, Vector* nodes)
     node->end = NULL;
     node->operation_node = NULL;
     node->asm_data.asm_generated = false;
+
+    node->has_label = false;
+    node->jump_was_created = false;
     
     return vector_push(nodes, &node);
 }

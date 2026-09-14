@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
 static size_t size_of_type(const enum OperationNodeType type) {
     if (type == OP_NODE_TYPE_INT || type == OP_NODE_TYPE_UINT) {
         return INT_SIZE;
@@ -137,7 +138,7 @@ static int load_const(struct OperationTreeNode* node, struct RiscVContext* ctx)
         return -1;
     }
 
-    struct RiscVLine line = {
+    const struct RiscVLine line = {
         .type = LINE_TYPE_INSTRUCTION,
         .instruction = (struct Instruction*) addi,
     };
@@ -529,7 +530,23 @@ static int generate_return(struct OperationTreeNode* node, struct RiscVContext* 
     return 0;
 }
 
-static int generate_condition_compare(struct OperationTreeNode* node, struct RiscVContext* ctx, const bool order)
+static int generate_jump(const char* to_block, struct RiscVContext* ctx)
+{
+    struct JalInstruction* jmp_to_true = jal_instructoin_init(ZERO, to_block);
+    const struct RiscVLine line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) jmp_to_true,
+    };
+    int err = linked_push_back(&ctx->instruction_list, &line);
+    if (err != 0) {
+        free_instruction((struct Instruction*) jmp_to_true);
+        return err;
+    }
+
+    return 0;
+}
+
+static int generate_condition_compare(struct OperationTreeNode* node, struct RiscVContext* ctx, const char* true_label, const char* false_label, const bool order)
 {
     struct OperationTreeNode** pointer = vector_get(&node->children, 0);
     struct OperationTreeNode* left = *pointer;
@@ -565,7 +582,7 @@ static int generate_condition_compare(struct OperationTreeNode* node, struct Ris
         r2 = *reg1;
     }
 
-    struct BranchInstruction* less_instr = branch_instruction_init(MN_BLT, r1, r2, ctx->label_generator->true_block_buffer);
+    struct BranchInstruction* less_instr = branch_instruction_init(MN_BLT, r1, r2, true_label);
     const struct RiscVLine less_line = {
         .type = LINE_TYPE_INSTRUCTION,
         .instruction = (struct Instruction*) less_instr,
@@ -578,7 +595,7 @@ static int generate_condition_compare(struct OperationTreeNode* node, struct Ris
         return err;
     }
 
-    struct JalInstruction* jal = jal_instructoin_init(ZERO, ctx->label_generator->false_block_buffer);
+    struct JalInstruction* jal = jal_instructoin_init(ZERO, false_label);
     const struct RiscVLine jal_line = {
         .type = LINE_TYPE_INSTRUCTION,
         .instruction = (struct Instruction*) jal,
@@ -599,116 +616,81 @@ static int generate_condition_compare(struct OperationTreeNode* node, struct Ris
 
 static int cfg_generate(struct CfgNode* cfg_node, struct RiscVContext* ctx);
 
-static int generate_jump(struct RiscVContext* ctx, const char* to_block)
-{
-    struct JalInstruction* jmp_to_true = jal_instructoin_init(ZERO, to_block);
-    const struct RiscVLine line = {
-        .type = LINE_TYPE_INSTRUCTION,
-        .instruction = (struct Instruction*) jmp_to_true,
-    };
-    int err = linked_push_back(&ctx->instruction_list, &line);
-    if (err != 0) {
-        free_instruction((struct Instruction*) jmp_to_true);
-        return err;
-    }
 
-    return 0;
-}
 
 static int generate_jump_into_return_block(struct RiscVContext* ctx);
 
 static int cfg_generate(struct CfgNode* cfg_node, struct RiscVContext* ctx)
 {
-    if (cfg_node == NULL || cfg_node->asm_data.asm_generated == true) {
+    if (cfg_node == NULL) {
         return 0;
+    }
+    if (cfg_node->asm_data.asm_generated == true) {
+        char label[LABEL_LENGTH];
+        sprintf(label, "_%p", cfg_node);
+        int err = generate_jump(label, ctx);
+        if (err != 0) {
+            return err;
+        }
+        return 0;
+    }
+
+    if (cfg_node->has_label == true) {
+        char label[LABEL_LENGTH];
+        sprintf(label, "_%p", cfg_node);
+
+        int err = generate_lable(label, ctx);
+        if (err != 0) {
+            return err;
+        }
     }
 
     cfg_node->asm_data.asm_generated = true;
 
-    if (cfg_node->operation_node == NULL) {
+    
 
-        int err = generate_jump(ctx, ctx->label_generator->after_block_buffer);
+    int err = 0;    
+    if (cfg_node->operation_node != NULL) {
+        if (cfg_node->operation_node->type == OP_NODE_CREATION_VARIABLE) {
+            err = generate_creation_variable(cfg_node->operation_node, ctx);
+        } else if(cfg_node->operation_node->type == OP_NODE_ASSIGMENT) {
+            err = generate_assigment(cfg_node->operation_node, ctx);
+        } else if (cfg_node->operation_node->type == OP_NODE_RETURN) {
+            err = generate_return(cfg_node->operation_node, ctx);
+        } else if (cfg_node->operation_node->type == OP_NODE_CALL_OR_INDEXER) {
+            err = generate_function_call(cfg_node->operation_node, ctx);
+        } else if (cfg_node->operation_node->type == OP_NODE_LESS) {
+            char true_label[LABEL_LENGTH];
+            sprintf(true_label, "_%p", cfg_node->condition);
+            char false_label[LABEL_LENGTH];
+            sprintf(false_label, "_%p", cfg_node->def);
+            err = generate_condition_compare(cfg_node->operation_node, ctx, true_label, false_label,  false);
+        } else if (cfg_node->operation_node->type == OP_NODE_MORE) {
+            char true_label[LABEL_LENGTH];
+            sprintf(true_label, "_%p", cfg_node->condition);
+            char false_label[LABEL_LENGTH];
+            sprintf(false_label, "_%p", cfg_node->def);
+            err = generate_condition_compare(cfg_node->operation_node, ctx, true_label, false_label, true);
+        } else {
+            assert(0);
+        }
+
         if (err != 0) {
             return err;
         }
-
-        err = generate_lable(ctx->label_generator->after_block_buffer, ctx);
-        if (err != 0) {
-            return err;
-        }
-
-        err = generate_jump_into_return_block(ctx);
-        if (err != 0) {
-            return err;
-        }
-
-        return 0;
     }
-
-    int err = 0;
-    if (cfg_node->operation_node->type == OP_NODE_CREATION_VARIABLE) {
-        err = generate_creation_variable(cfg_node->operation_node, ctx);
-    } else if(cfg_node->operation_node->type == OP_NODE_ASSIGMENT) {
-        err = generate_assigment(cfg_node->operation_node, ctx);
-    } else if (cfg_node->operation_node->type == OP_NODE_RETURN) {
-        err = generate_return(cfg_node->operation_node, ctx);
-    } else if (cfg_node->operation_node->type == OP_NODE_CALL_OR_INDEXER) {
-        err = generate_function_call(cfg_node->operation_node, ctx);
-    } else if (cfg_node->operation_node->type == OP_NODE_LESS) {
-        err = generate_condition_compare(cfg_node->operation_node, ctx, false);
-    } else if (cfg_node->operation_node->type == OP_NODE_MORE) {
-        err = generate_condition_compare(cfg_node->operation_node, ctx, true);
-    } else {
-        assert(0);
+    
+    // That mean that last node
+    if (cfg_node->def == NULL) {
+        return generate_jump_into_return_block(ctx);
     }
-
-    if (err != 0) {
-        return err;
-    }
-
-    if (cfg_node->end == NULL) {
-        err =  cfg_generate(cfg_node->def, ctx);
-        if (err != 0) {
-            return err;
-        }
-
-        return 0;
-    }
-
-    err = generate_lable(ctx->label_generator->true_block_buffer, ctx);
-    if (err != 0) {
-        return err;
-    }
-    label_true_block_update(ctx->label_generator);
-
 
     err = cfg_generate(cfg_node->condition, ctx);
     if (err != 0) {
         return err;
     }
 
-
-    err = generate_lable(ctx->label_generator->false_block_buffer, ctx);
-    if (err != 0) {
-        return err;
-    }
-    label_false_block_update(ctx->label_generator);
-
-
-    err = cfg_generate(cfg_node->def, ctx);
-    if (err != 0) {
-        return err;
-    }
-
-    err = generate_jump(ctx, ctx->label_generator->after_block_buffer);
-    if (err != 0) {
-        return err;
-    }
-    label_after_block_update(ctx->label_generator);
-
-
-
-    return 0;
+    return cfg_generate(cfg_node->def, ctx);
 }
 
 static int generate_jump_into_return_block(struct RiscVContext* ctx)
@@ -926,10 +908,10 @@ int risc_v_generate_asm(const char* funciton_name, struct CfgNode* cfg_node, Vec
         return err;
     }
 
-    err = generate_jump_into_return_block(ctx);
-    if (err != 0) {
-        return err;
-    }
+    // err = generate_jump_into_return_block(ctx);
+    // if (err != 0) {
+    //     return err;
+    // }
 
     err = generate_prolog(ctx);
     if (err != 0) {
