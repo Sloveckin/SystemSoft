@@ -340,6 +340,8 @@ static struct OperationTreeNode* create_load(struct AstNode* node)
     enum OperationNodeType type;
     if (node->type == AST_TYPE_IDENTIFIER) {
         type = OP_NODE_LOAD;
+    } else if (node->type == AST_TYPE_STR) {
+        type = OP_NODE_STRING_CONST;
     } else {
         type = OP_NODE_CONST;
     }

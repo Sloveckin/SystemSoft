@@ -22,6 +22,7 @@ struct RiscVContext {
     struct RiscVMachine machine;
     struct LabelGenerator* label_generator;
     Stack register_stack;
+    LinkedList string_list;
     LinkedList instruction_list;
     LinkedList return_instruction_list;
     Map stack_recording;

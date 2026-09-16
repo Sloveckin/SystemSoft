@@ -29,6 +29,7 @@ const char* mnemonic_to_str[] = {
     "slt",
     "blt",
     "bne",
+    "lla",
 };
 
 struct ITypeInstruction* itype_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const int64_t imm)
@@ -103,6 +104,9 @@ int write_inscruction(struct Instruction* instruction, FILE* file)
     } else if (instruction->format == INSTRUCTION_FORMAT_BRANCH) {
         const struct BranchInstruction* branch_instr = (struct BranchInstruction*) instruction;
         res = fprintf(file, "\t%s %s, %s, %s\n", mnemonic_to_str[branch_instr->base.mnemonic], register_type_to_str[branch_instr->reg1], register_type_to_str[branch_instr->reg2], branch_instr->label_name);
+    } else if (instruction->format == INSTRUCTION_LLA) {
+        const struct LLA* lla = (struct LLA*) instruction;
+        res = fprintf(file, "\t%s %s, %s\n", mnemonic_to_str[lla->base.mnemonic], register_type_to_str[lla->reg1], lla->label);
     } else {
         assert(0);
     }
@@ -212,6 +216,34 @@ struct BranchInstruction* branch_instruction_init(const enum Mnemonic mnemonic, 
         return NULL;
     }
     strcpy(instr->label_name, label_name);
+
+    return instr;
+}
+
+static void lla_free(struct Instruction* instr)
+{
+    free(((struct LLA*) instr)->label);
+}
+
+struct LLA* lla_instruction_init(const enum RegisterType reg1, char* label)
+{
+    struct LLA* instr = malloc(sizeof(struct LLA));
+    if (instr == NULL) {
+        return NULL;
+    }
+
+    instr->base.format = INSTRUCTION_LLA,
+    instr->base.mnemonic = MN_LLA;
+    instr->base.free_function = lla_free,
+
+    instr->reg1 = reg1;
+    instr->label = malloc((strlen(label) + 1) * sizeof(char));
+    if (instr->label == NULL) {
+        free(instr);
+        return NULL;
+    }
+    strcpy(instr->label, label);
+
 
     return instr;
 }

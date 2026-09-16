@@ -133,8 +133,19 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
         struct Function** pointer = program->functions_ptr.buffer[i].value;
         struct Function* function = *pointer;
 
+        // Write instruction from string list
+        LinkedListNode* cur_node = linked_head(&function->riscv_context->string_list);
+        while (cur_node != NULL) {
+            struct RiscVLine *line = cur_node->memory;
+            int err = write_riscv_line(line, file);
+            if (err != 0) {
+                return err;
+            }
+            cur_node = cur_node->next;
+        }
+
         // Write instructions from main list
-        LinkedListNode* cur_node = linked_head(&function->riscv_context->instruction_list);
+        cur_node = linked_head(&function->riscv_context->instruction_list);
         while (cur_node != NULL) {
             struct RiscVLine *line = cur_node->memory;
             int err = write_riscv_line(line, file);

@@ -5,6 +5,7 @@
 
 const char* directive_to_str[] = {
     ".global",
+    ".string"
 };
 
 struct Directive* directive_init(const enum DirectiveType type, const char* text)

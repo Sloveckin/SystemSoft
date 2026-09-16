@@ -28,6 +28,7 @@ enum Mnemonic {
     MN_SLT = 19,
     MN_BLT = 20,
     MN_BNE = 21,
+    MN_LLA = 22,
 };
 
 enum InstructionFormat {
@@ -37,6 +38,7 @@ enum InstructionFormat {
     INSTRUCTION_FORMAT_CALL,
     INSTRUCTION_FORMAT_R3,
     INSTRUCTION_FORMAT_BRANCH,
+    INSTRUCTION_LLA,
 };
 
 struct Instruction {
@@ -90,6 +92,13 @@ struct BranchInstruction {
     char* label_name;
 };
 
+struct LLA {
+    struct Instruction base;
+
+    enum RegisterType reg1;
+    char* label;
+};
+
 extern const char* mnemonic_to_str[];
 
 struct ITypeInstruction* itype_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const int64_t imm);
@@ -103,6 +112,8 @@ struct R3Instruction* r3_instruction_init(const enum Mnemonic mnemonic, const en
 struct BranchInstruction* branch_instruction_init(const enum Mnemonic mnemonic, const enum RegisterType r1, const enum RegisterType r2, const char* label_name);
 
 struct Call* call_instruction_init(const char* name);
+
+struct LLA* lla_instruction_init(const enum RegisterType reg1, char* label);
 
 void free_instruction(struct Instruction* instr);
 

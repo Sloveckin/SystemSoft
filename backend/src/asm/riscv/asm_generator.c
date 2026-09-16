@@ -94,7 +94,7 @@ static size_t size_of_type(const enum OperationNodeType type) {
         return INT_SIZE;
     } else if (type == OP_NODE_TYPE_SHORT || type == OP_NODE_TYPE_USHORT) {
         return SHORT_SIZE;
-    } else if (type == OP_NODE_TYPE_LONG || type == OP_NODE_TYPE_ULONG) {
+    } else if (type == OP_NODE_TYPE_LONG || type == OP_NODE_TYPE_ULONG || type == OP_NODE_TYPE_STRING) {
         return LONG_SIZE;
     } else if (type == OP_NODE_TYPE_BOOL) {
         return BOOL_SIZE;
@@ -482,7 +482,6 @@ static int load_indexer(struct OperationTreeNode* node, struct RiscVContext* ctx
 
         struct ITypeInstruction* addi2 = itype_instruction_init(MN_ADDI, reg->type, reg->type, offset_number->compiled_info.value.number * recoring->size);
 
-
         const struct RiscVLine addi_line2 = {
             .type = LINE_TYPE_INSTRUCTION,
             .instruction = (struct Instruction*) addi2,
@@ -546,6 +545,86 @@ static int load_indexer(struct OperationTreeNode* node, struct RiscVContext* ctx
     return 0;
 }
 
+static int load_string(struct OperationTreeNode* node, struct RiscVContext* ctx)
+{
+    char label_name[LABEL_LENGTH];
+    sprintf(label_name, "_%p", node);
+
+    const size_t label_text_length = strlen(label_name) + 1;
+    char* label_text = malloc(label_text_length * sizeof(char));
+    if (label_text == NULL) {
+        return -1;
+    }
+    strcpy(label_text, label_name);
+
+    const struct RiscVLine lable_line = {
+        .type = LINE_TYPE_LABEL,
+        .text = label_text,
+    };
+
+    int err = linked_push_back(&ctx->string_list, &lable_line);
+    if (err != 0) {
+        free(label_text);
+        return err;
+    }
+
+    char* text = malloc((strlen(node->argument) + 3) * sizeof(char));
+    if (text == NULL) {
+        return -1;
+    }
+    sprintf(text, "\"%s\"", node->argument);
+
+    struct Directive* dir = directive_init(DIRECTIVE_TYPE_STRING, text);
+    if (dir == NULL) {
+        free(text);
+        return -1;
+    }
+    free(text);
+
+    const struct RiscVLine dir_line = {
+        .type = LINE_TYPE_DIRECTIVE,
+        .directive = dir,
+    };
+
+    err = linked_push_back(&ctx->string_list, &dir_line);
+    if (err != 0) {
+        return -1;
+    }
+
+    struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
+    if (reg == NULL) {
+        puts("No available registers. Please, rewrite your code");
+        assert(0);
+    }
+    reg->used = true;
+
+    struct LLA* lla = lla_instruction_init(reg->type, label_name);
+    if (lla == NULL) {
+        return -1;
+    }
+
+    err = stack_push(&ctx->register_stack, &reg->type);
+    if (err != 0) {
+        free_instruction((struct Instruction*) lla);
+        free(lla);
+        return -1;
+    }
+
+    const struct RiscVLine lla_line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) lla,
+    };
+
+    err = linked_push_back(&ctx->instruction_list, &lla_line);
+    if (err != 0) {
+        free_instruction((struct Instruction*) lla);
+        free(lla);
+        return -1;
+    }
+
+    return 0;
+}
+
 static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
 {
     if (node->type == OP_NODE_CONST) {
@@ -574,6 +653,8 @@ static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
         return load_binary(MN_BNE, node, ctx, true);
     } else if (node->type == OP_NODE_INDEXER) {
         return load_indexer(node, ctx);
+    } else if (node->type == OP_NODE_STRING_CONST) {
+        return load_string(node, ctx);
     } else {
         assert(0);
     }
@@ -1302,7 +1383,15 @@ int risc_v_context_init(struct RiscVContext* ctx, struct LabelGenerator* label_g
     if (err != 0) {
         stack_free(&ctx->register_stack);
         linked_free(&ctx->instruction_list);
-        return 0;
+        return err;
+    }
+
+    
+    err = init_linked_list(&ctx->string_list, line_info);
+    if (err != 0) {
+        stack_free(&ctx->register_stack);
+        linked_free(&ctx->instruction_list);
+        return err;
     }
 
     ctx->stack_size = 0;
@@ -1314,6 +1403,7 @@ void risc_v_context_free(struct RiscVContext* ctx)
 {
     linked_free(&ctx->return_instruction_list);
     linked_free(&ctx->instruction_list);
+    linked_free(&ctx->string_list);
     stack_free(&ctx->register_stack);
     map_free(&ctx->stack_recording);
 }
