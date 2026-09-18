@@ -178,6 +178,107 @@ static int generate_lable(const char* label_name, struct RiscVContext* ctx)
     return 0;
 }
 
+static int load_save_register_on_stack(struct Register* reg, struct RiscVContext* ctx)
+{
+
+    struct SLTypeInstruction* save_register = sltype_instruction_init(MN_SD, reg->type, REGISTER_VARIABLE_MAPPING, ctx->stack_size);
+    if (save_register == NULL) {
+        return -1;
+    }
+    reg->offset = ctx->stack_size;
+    ctx->stack_size += 8; // Need to create define for this value
+
+    const struct RiscVLine line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) save_register,
+    };
+
+    int err = linked_push_front(&ctx->instruction_list, &line);
+    if (err != 0) {
+        free(save_register);
+        return err;
+    }
+
+    return 0;
+}
+
+static int load_save_registers_on_stack(struct RiscVContext* ctx)
+{
+    for (size_t i = S0; i <= S1; i++) {
+        struct Register* reg = &ctx->machine.registers[i];
+        if (reg->used == false) {
+            continue;
+        }
+        int err = load_save_register_on_stack(reg, ctx);
+        if (err != 0) {
+            return err;
+        }
+    }
+
+    for (size_t i = S2; i < S11; i++) {
+        struct Register* reg = &ctx->machine.registers[i];
+        if (reg->used == false) {
+            continue;
+        }
+
+        int err = load_save_register_on_stack(reg, ctx);
+        if (err != 0) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+
+static int return_save_register(struct Register* reg, struct RiscVContext* ctx)
+{
+    struct SLTypeInstruction* instr = sltype_instruction_init(MN_LD, reg->type, REGISTER_VARIABLE_MAPPING, reg->offset);
+    if (instr == NULL) {
+        return -1;
+    }
+
+    const struct RiscVLine line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) instr,
+    };
+
+    int err = linked_push_back(&ctx->return_instruction_list, &line);
+    if (err != 0) {
+        free(instr);
+        return err;
+    }
+
+    return 0;
+}
+
+static int return_save_registers(struct RiscVContext* ctx)
+{
+     for (size_t i = S0; i <= S1; i++) {
+        struct Register* reg = &ctx->machine.registers[i];
+        if (reg->used == false) {
+            continue;
+        }
+        int err = return_save_register(reg, ctx);
+        if (err != 0) {
+            return err;
+        }
+    }
+
+    for (size_t i = S2; i < S11; i++) {
+        struct Register* reg = &ctx->machine.registers[i];
+        if (reg->used == false) {
+            continue;
+        }
+
+        int err = return_save_register(reg, ctx);
+        if (err != 0) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+
 static int load_const(struct OperationTreeNode* node, struct RiscVContext* ctx)
 {
     struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
@@ -274,7 +375,9 @@ static int store_in_register(const enum RegisterType reg_to, struct RiscVContext
 {
     const enum RegisterType* reg_from = stack_top(&ctx->register_stack);
     stack_pop(&ctx->register_stack);
-    ctx->machine.registers[*reg_from].used = false;
+    if (is_save_regsiter(*reg_from) == false) {
+        ctx->machine.registers[*reg_from].used = false;
+    }
 
     struct R3Instruction* r3 = r3_instruction_init(MN_ADD, reg_to, ZERO, *reg_from);
     if (r3 == NULL) {
@@ -292,12 +395,14 @@ static int store_in_register(const enum RegisterType reg_to, struct RiscVContext
         return err;
     }
 
+#if 0
     struct Register* a0_reg = &ctx->machine.registers[A0];
     err = stack_push(&ctx->register_stack, &a0_reg->type);
     if (err != 0) {
         free(r3);
         return err;
     }
+#endif
 
     return 0;
 }
@@ -395,8 +500,13 @@ static int load_binary(const enum Mnemonic mnemonic, struct OperationTreeNode* n
     const enum RegisterType* reg2 = stack_top(&ctx->register_stack);
     stack_pop(&ctx->register_stack);
 
-    ctx->machine.registers[*reg1].used = false;
-    ctx->machine.registers[*reg2].used = false;
+    if (is_save_regsiter(*reg1) == false) {
+        ctx->machine.registers[*reg1].used = false;
+    }
+
+    if (is_save_regsiter(*reg2) == false) {
+        ctx->machine.registers[*reg2].used = false;
+    }
 
     struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
     if (reg == NULL) {
@@ -643,7 +753,7 @@ static int load(struct OperationTreeNode* node, struct RiscVContext* ctx)
     } else if (node->type == OP_NODE_PLUS) {
         return load_binary(MN_ADD, node, ctx, true);
     } else if (node->type == OP_NODE_MINUS) {
-        return load_binary(MN_SUB, node, ctx, true);
+        return load_binary(MN_SUB, node, ctx, false);
     } else if (node->type == OP_NODE_MUL) {
         return load_binary(MN_MUL, node, ctx, true);
     } else if (node->type == OP_NODE_DIV) {
@@ -681,7 +791,9 @@ static int store_with_offset(struct OperationTreeNode* node, struct RiscVContext
 
     const enum RegisterType* reg = stack_top(&ctx->register_stack);
     stack_pop(&ctx->register_stack);
-    ctx->machine.registers[*reg].used = false;
+    if (is_save_regsiter(*reg) == false) {
+        ctx->machine.registers[*reg].used = false;
+    }
 
     const enum Mnemonic store_mnemonic = store_mnemonic_by_size(recoring->size);
     struct SLTypeInstruction* save_instruction = sltype_instruction_init(store_mnemonic, *reg, REGISTER_VARIABLE_MAPPING, recoring->offset + offset * recoring->size);
@@ -775,7 +887,9 @@ static int store(struct OperationTreeNode* node, struct RiscVContext* ctx)
 
         const enum RegisterType* reg_to = stack_top(&ctx->register_stack);
         stack_pop(&ctx->register_stack);
-        ctx->machine.registers[*reg_to].used = false;
+        if (is_save_regsiter(*reg_to) == false) {
+            ctx->machine.registers[*reg_to].used = false;
+        }
 
         const enum Mnemonic store_mnemonic = store_mnemonic_by_size(recoring->size);
         struct SLTypeInstruction* save_instruction = sltype_instruction_init(store_mnemonic, *reg_to, reg->type, 0);
@@ -896,7 +1010,9 @@ static int generate_return(struct OperationTreeNode* node, struct RiscVContext* 
 
     const enum RegisterType* reg = stack_top(&ctx->register_stack);
     stack_pop(&ctx->register_stack);
-    ctx->machine.registers[*reg].used = false;
+    if (is_save_regsiter(*reg) == false) {
+        ctx->machine.registers[*reg].used = false;
+    }
 
     struct ITypeInstruction* addi = itype_instruction_init(MN_ADDI, A0, *reg, 0);
     if (addi == NULL) {
@@ -956,8 +1072,13 @@ static int generate_condition_compare(struct OperationTreeNode* node, struct Ris
     const enum RegisterType* reg2 = stack_top(&ctx->register_stack);
     stack_pop(&ctx->register_stack);
 
-    ctx->machine.registers[*reg1].used = false;
-    ctx->machine.registers[*reg2].used = false;
+    if (is_save_regsiter(*reg1) == false) {
+        ctx->machine.registers[*reg1].used = false;
+    }
+
+    if (is_save_regsiter(*reg2) == false) {
+        ctx->machine.registers[*reg2].used = false;
+    }
 
     enum RegisterType r1;
     enum RegisterType r2;
@@ -1164,9 +1285,15 @@ static int generate_epilog(struct RiscVContext* ctx)
         .text = label_text
     };
 
+
     int err = linked_push_back(&ctx->return_instruction_list, &return_label);
     if (err != 0) {
         free(label_text);
+        return err;
+    }
+
+    err = return_save_registers(ctx);
+    if (err != 0) {
         return err;
     }
 
@@ -1175,7 +1302,9 @@ static int generate_epilog(struct RiscVContext* ctx)
     if (load_ra == NULL) {
         return -1;
     }
-    ra_register->used = false;
+    if (is_save_regsiter(ra_register->type) == false) {
+        ra_register->used = false;
+    }
 
     const struct RiscVLine load_ra_line = {
         .type = LINE_TYPE_INSTRUCTION,
@@ -1294,6 +1423,11 @@ int risc_v_generate_asm(const char* funciton_name, struct CfgNode* cfg_node, Vec
     }
 
     err = cfg_generate(cfg_node, ctx);
+    if (err != 0) {
+        return err;
+    }
+
+    err = load_save_registers_on_stack(ctx);
     if (err != 0) {
         return err;
     }

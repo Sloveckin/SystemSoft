@@ -48,3 +48,17 @@ struct Register* riscv_machine_get_temp_register(struct RiscVMachine* machine)
 
     return get_register(machine, T3, T6);
 }
+
+
+bool is_save_regsiter(const enum RegisterType reg)
+{
+    if (reg == S0 || reg == S1) {
+        return true;
+    }
+
+    if (reg >= S2 && reg <= S11) {
+        return true;
+    }
+
+    return false;
+}

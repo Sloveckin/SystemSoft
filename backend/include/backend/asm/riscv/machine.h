@@ -17,4 +17,6 @@ struct Register* riscv_machine_get_caller_save_reg(struct RiscVMachine* machine)
 
 struct Register* riscv_machine_get_temp_register(struct RiscVMachine* machine);
 
+bool is_save_regsiter(const enum RegisterType reg);
+
 #endif

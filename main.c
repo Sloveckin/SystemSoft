@@ -6,6 +6,7 @@
 #include "colc/linked_list.h"
 #include "dgml/from_cfg.h"
 
+#include "language/common/function.h"
 #include "language/common/signature.h"
 #include "language/program.h"
 #include "language/semantic_analysis/semantic_analysis.h"
@@ -125,6 +126,11 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
         return -1;
     }
 
+    int res = fprintf(file, ".section .rodata\n");
+    if (res < 0) {
+        return res;
+    }
+
     for (size_t i = 0; i < program->functions_ptr.capacity; i++) {
         if (program->functions_ptr.buffer[i].key == NULL) {
             continue;
@@ -134,10 +140,6 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
         struct Function* function = *pointer;
 
         // Write instruction from string list
-        int res = fprintf(file, ".section .rodata\n");
-        if (res < 0) {
-            return res;
-        }
         LinkedListNode* cur_node = linked_head(&function->riscv_context->string_list);
         while (cur_node != NULL) {
             struct RiscVLine *line = cur_node->memory;
@@ -147,12 +149,23 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
             }
             cur_node = cur_node->next;
         }
-        res = fprintf(file, ".section .text\n");
-        if (res < 0) {
-            return res;
+        
+    }
+
+    res = fprintf(file, ".section .text\n");
+    if (res < 0) {
+        return res;
+    }
+    for (size_t i = 0; i < program->functions_ptr.capacity; i++) {
+        if (program->functions_ptr.buffer[i].key == NULL) {
+            continue;
         }
+
+        struct Function** pointer = program->functions_ptr.buffer[i].value;
+        struct Function* function = *pointer;
+
         // Write instructions from main list
-        cur_node = linked_head(&function->riscv_context->instruction_list);
+        LinkedListNode* cur_node = linked_head(&function->riscv_context->instruction_list);
         while (cur_node != NULL) {
             struct RiscVLine *line = cur_node->memory;
             int err = write_riscv_line(line, file);
@@ -176,7 +189,9 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
         if (res < 0) {
             return res;
         }
+
     }
+
     return 0;
 }
 
