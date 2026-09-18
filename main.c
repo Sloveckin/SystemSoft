@@ -134,6 +134,10 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
         struct Function* function = *pointer;
 
         // Write instruction from string list
+        int res = fprintf(file, ".section .rodata\n");
+        if (res < 0) {
+            return res;
+        }
         LinkedListNode* cur_node = linked_head(&function->riscv_context->string_list);
         while (cur_node != NULL) {
             struct RiscVLine *line = cur_node->memory;
@@ -143,7 +147,10 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
             }
             cur_node = cur_node->next;
         }
-
+        res = fprintf(file, ".section .text\n");
+        if (res < 0) {
+            return res;
+        }
         // Write instructions from main list
         cur_node = linked_head(&function->riscv_context->instruction_list);
         while (cur_node != NULL) {
@@ -165,7 +172,7 @@ static int write_all_into_asm_file(struct Program* program, const char* file_nam
             }
             cur_node = cur_node->next;
         }
-        int res = fputs("\n", file);
+        res = fputs("\n", file);
         if (res < 0) {
             return res;
         }

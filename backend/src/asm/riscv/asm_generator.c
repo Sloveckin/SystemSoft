@@ -342,24 +342,31 @@ static int generate_function_call(struct OperationTreeNode* node, struct RiscVCo
         return -1;
     }   
 
-    struct Register* reg = riscv_machine_get_temp_register(&ctx->machine);
+    struct Register* reg = riscv_machine_get_caller_save_reg(&ctx->machine);
     if (reg == NULL) {
         puts("Couldn't find free register, please rewrite your code");
-        free_instruction((struct Instruction*) call);
         return -1;
     }
     reg->used = true;
 
     err = stack_push(&ctx->register_stack, &reg->type);
     if (err != 0) {
-        free_instruction((struct Instruction*) call);
         return err;
     }
 
-    err = store_in_register(reg->type, ctx);
-    if (err != 0) {
-        free_instruction((struct Instruction*) call);
+    struct R3Instruction* addi = r3_instruction_init(MN_ADD, reg->type, ZERO, A0);
+    if (addi == NULL) {
         return -1;
+    }
+
+    const struct RiscVLine addi_line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) addi,
+    };
+
+    err = linked_push_back(&ctx->instruction_list, &addi_line);
+    if (err != 0) {
+        return err;
     }
 
     return 0;
@@ -1116,6 +1123,11 @@ static int generate_prolog(struct RiscVContext* ctx)
     }
 
     ctx->stack_size += 8;
+
+    while (ctx->stack_size % 16 != 0) {
+        ctx->stack_size += 4;
+    }
+
     struct ITypeInstruction* add_stack_frame = itype_instruction_init(MN_ADDI, SP,  SP, -ctx->stack_size);
     if  (add_stack_frame == NULL) {
         free(save_ra);
@@ -1285,11 +1297,6 @@ int risc_v_generate_asm(const char* funciton_name, struct CfgNode* cfg_node, Vec
     if (err != 0) {
         return err;
     }
-
-    // err = generate_jump_into_return_block(ctx);
-    // if (err != 0) {
-    //     return err;
-    // }
 
     err = generate_prolog(ctx);
     if (err != 0) {
