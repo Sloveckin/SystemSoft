@@ -395,19 +395,47 @@ static int store_in_register(const enum RegisterType reg_to, struct RiscVContext
         return err;
     }
 
-#if 0
-    struct Register* a0_reg = &ctx->machine.registers[A0];
-    err = stack_push(&ctx->register_stack, &a0_reg->type);
-    if (err != 0) {
-        free(r3);
-        return err;
-    }
-#endif
-
     return 0;
 }
 
 static int load(struct OperationTreeNode* node, struct RiscVContext* ctx);
+
+static int store_in_memory(Stack* memory_stack, struct RiscVContext* ctx)
+{
+    enum RegisterType* reg = stack_top(&ctx->register_stack);
+    stack_pop(&ctx->register_stack);
+    ctx->machine.registers[*reg].used = false;
+
+    // MN_SD..?
+    struct SLTypeInstruction* store_instr = sltype_instruction_init(MN_SD, *reg, REGISTER_VARIABLE_MAPPING, ctx->stack_size);
+    ctx->stack_size += 8;
+    if (store_instr == NULL) {
+        return -1;
+    }
+
+    const struct RiscVLine store_line = {
+        .type = LINE_TYPE_INSTRUCTION,
+        .instruction = (struct Instruction*) store_instr,
+    };
+
+    int err = linked_push_back(&ctx->instruction_list, &store_line);
+    if (err != 0) {
+        free(store_instr);
+        return err;
+    }
+
+    struct StackRecording stack_recording = {
+        .offset = ctx->stack_size - 8,
+        .size = 8
+    };
+
+    err = stack_push(memory_stack, &stack_recording);
+    if (err != 0) {
+        return err;
+    }
+
+    return 0;
+}
 
 static int generate_function_call(struct OperationTreeNode* node, struct RiscVContext* ctx)
 {
@@ -417,19 +445,57 @@ static int generate_function_call(struct OperationTreeNode* node, struct RiscVCo
     pointer = vector_get(&node->children, 1);
     struct OperationTreeNode* args_list = *pointer;
 
+    struct Stack memory_stack;
+    const ObjectInfo memory_stack_info = {
+        .size = sizeof(struct StackRecording*),
+        .copy = NULL,
+        .destructor = NULL
+    };
+
+    int err = stack_init(&memory_stack, memory_stack_info);
+    if (err != 0) {
+        return err;
+    }
+
     for (size_t i = 0; i < args_list->children.size; i++) {
         pointer = vector_get(&args_list->children, i);
         int err = load(*pointer, ctx);
         if (err != 0) {
+            stack_free(&memory_stack);
             return err;
         }
         
-        err = store_in_register(A0 + i, ctx);
+        err = store_in_memory(&memory_stack, ctx);
         if (err != 0) {
+            stack_free(&memory_stack);
             return err;
         }
 
     }
+
+    for (size_t i = 0; i < memory_stack.size; i++) {
+        struct StackRecording* stack_recording = stack_top(&memory_stack);
+        stack_pop(&memory_stack);
+
+        struct SLTypeInstruction* load_instr = sltype_instruction_init(MN_LD, A0 + i, REGISTER_VARIABLE_MAPPING, stack_recording->offset);
+        if (load_instr == NULL) {
+            return -1;
+        }
+        const struct RiscVLine line = {
+            .type = LINE_TYPE_INSTRUCTION,
+            .instruction = (struct Instruction*) load_instr,
+        };
+
+        int err = linked_push_back(&ctx->instruction_list, &line);
+        if (err != 0) {
+            free(load_instr);
+            return err;
+        }
+
+        return 0;
+    }
+
+    stack_free(&memory_stack);
 
     struct Call* call = call_instruction_init(function_name->argument);
     if (call == NULL) {
@@ -441,7 +507,7 @@ static int generate_function_call(struct OperationTreeNode* node, struct RiscVCo
         .instruction = (struct Instruction* ) call,
     };
 
-    int err = linked_push_back(&ctx->instruction_list, &line);
+    err = linked_push_back(&ctx->instruction_list, &line);
     if (err != 0) {
         free_instruction((struct Instruction*) call);
         return -1;
