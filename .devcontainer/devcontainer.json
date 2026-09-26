@@ -11,11 +11,6 @@
 				"ms-vscode.cpptools"
 			]
 		}
-	},
-
-	"onCreateCommand": [
-		"sudo apt install gcc flex yacc clangd"
-	]
-
+	}
 	// "remoteUser": "root"
 }
